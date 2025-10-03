@@ -1,12 +1,16 @@
 use embassy_time::{Duration, Timer};
 
-use crate::firmware::drivers::can::{CanCommand, CanFrame};
 use crate::firmware::irpc_integration::JointFocBridge;
+use crate::firmware::transport::IrpcTransport;
 use irpc::protocol::Message;
+
+// Legacy imports for backward compatibility
+use crate::firmware::drivers::can::CanCommand;
 
 /// CAN communication task with iRPC protocol integration.
 ///
-/// Handles incoming iRPC messages over CAN-FD and dispatches to FOC bridge.
+/// Uses IrpcTransport abstraction to hide all CAN-FD details.
+/// The transport layer automatically handles serialization/deserialization.
 #[embassy_executor::task]
 pub async fn can_communication(node_id: u16) {
     defmt::info!("iRPC/CAN communication task starting (joint_id=0x{:04x})", node_id);
@@ -14,51 +18,49 @@ pub async fn can_communication(node_id: u16) {
     // Initialize iRPC-FOC bridge
     let mut bridge = JointFocBridge::new(node_id);
     
-    // TODO: Initialize CAN driver
+    // TODO: Initialize CAN driver and transport
     // let mut can = CanDriver::new(p, node_id);
+    // let mut transport = IrpcTransport::new(&mut can);
     
     Timer::after(Duration::from_secs(1)).await;
     
     defmt::info!("iRPC joint ready: lifecycle={:?}, max_msg_size={} bytes", 
                  bridge.state(), Message::max_size());
     
-    // Main iRPC message processing loop with NEW serialization API
+    // Main iRPC message processing loop using transport abstraction
+    // NO manual serialization needed - transport handles it!
     loop {
         Timer::after(Duration::from_secs(1)).await;
         
-        // Production message processing flow:
-        // 1. can.receive() -> CanFrame
-        // 2. Message::deserialize(&frame.data) -> Result<Message, ProtocolError>
-        // 3. bridge.handle_message(&msg) -> Option<Message>
-        // 4. response.serialize() -> Result<Vec<u8>, ProtocolError>
-        // 5. can.send(CanFrame { data: serialized })
-        
-        // Example (when CAN is ready):
+        // Production code with transport layer (when CAN is ready):
         /*
-        if let Ok(frame) = can.receive().await {
-            match Message::deserialize(&frame.data) {
-                Ok(msg) => {
-                    if let Some(response) = bridge.handle_message(&msg) {
-                        match response.serialize() {
-                            Ok(data) => {
-                                let resp_frame = CanFrame::new(node_id).with_data(&data);
-                                can.send(resp_frame).await.ok();
-                            }
-                            Err(e) => defmt::error!("iRPC serialize error: {:?}", e),
-                        }
+        // Receive message (transport handles deserialization)
+        match transport.receive_message().await {
+            Ok(Some(msg)) => {
+                // Process message through iRPC bridge
+                if let Some(response) = bridge.handle_message(&msg) {
+                    // Send response (transport handles serialization)
+                    if let Err(e) = transport.send_message(&response).await {
+                        defmt::error!("Transport error: {:?}", e);
                     }
                 }
-                Err(e) => defmt::warn!("iRPC deserialize error: {:?}", e),
+            }
+            Ok(None) => {
+                // No message available, continue
+            }
+            Err(e) => {
+                defmt::warn!("Transport error: {:?}", e);
             }
         }
         */
     }
 }
 
-/// Process incoming CAN command.
+/// Legacy process_command function (deprecated - use transport abstraction instead).
 ///
-/// Returns true if command was processed successfully.
-pub fn process_command(frame: &CanFrame) -> Result<CommandResponse, ()> {
+/// This function is kept for backward compatibility.
+#[allow(dead_code)]
+pub fn process_command(frame: &crate::firmware::drivers::can::CanFrame) -> Result<CommandResponse, ()> {
     let cmd = frame.parse_command()?;
     
     match cmd {
