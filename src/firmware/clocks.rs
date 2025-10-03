@@ -27,12 +27,8 @@ pub fn rcc_config() -> RccConfig {
     cfg
 }
 
-pub fn clocks(rcc: &RCC) -> &'static Clocks {
-    rcc::clocks(rcc)
-}
-
-pub fn log_clocks(rcc: &RCC) {
-    let clk = clocks(rcc);
+pub fn log_clocks(rcc: &embassy_stm32::Peri<'_, RCC>) {
+    let clk = rcc::clocks(rcc);
     if let Some(sys) = clk.sys.to_hertz() {
         defmt::info!("sysclk={} Hz", sys.0);
         if sys.0 != SYSCLK_HZ {

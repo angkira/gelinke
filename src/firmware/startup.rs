@@ -1,14 +1,20 @@
 use embassy_executor::Spawner;
 use embassy_stm32::Config;
-use embassy_time::{Duration, Timer};
 
-pub async fn run(_spawner: Spawner) -> ! {
-    let _p = embassy_stm32::init(Config::default());
+use crate::firmware::clocks;
 
-    defmt::info!("joint_firmware boot");
-
-    loop {
-        Timer::after(Duration::from_secs(1)).await;
-        defmt::info!("heartbeat");
-    }
+pub async fn run(spawner: Spawner) -> ! {
+    // Initialize STM32 with custom RCC config
+    let mut config = Config::default();
+    config.rcc = clocks::rcc_config();
+    let p = embassy_stm32::init(config);
+    
+    // Log clock frequencies
+    clocks::log_clocks(&p.RCC);
+    
+    defmt::info!("=== CLN17 v2.0 Joint Firmware ===");
+    defmt::info!("Target: STM32G431CB @ 170 MHz");
+    
+    // Hand off to system initialization
+    crate::firmware::system::initialize(spawner, p).await
 }
