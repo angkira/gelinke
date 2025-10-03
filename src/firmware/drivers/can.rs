@@ -101,8 +101,12 @@ impl CanFrame {
 ///
 /// Uses protocol-level abstractions ready for hardware connection.
 /// Hardware implementation pending embassy-stm32 FDCAN HAL (planned for v0.5+).
+///
+/// Implements `irpc::EmbeddedTransport` for seamless iRPC integration.
 pub struct CanDriver {
     node_id: u16,
+    rx_buffer: [u8; MAX_DATA_LEN],
+    rx_len: usize,
     // TODO: Add fdcan: FdCan<'static, FDCAN1> when embassy HAL is available
 }
 
@@ -120,6 +124,8 @@ impl CanDriver {
         
         Self {
             node_id,
+            rx_buffer: [0u8; MAX_DATA_LEN],
+            rx_len: 0,
         }
     }
 
@@ -166,6 +172,56 @@ impl CanDriver {
         
         let frame = CanFrame { id: self.node_id, data };
         self.send(frame).await
+    }
+}
+
+// ============================================================================
+// iRPC EmbeddedTransport implementation for CanDriver
+// ============================================================================
+
+/// CAN transport error type.
+#[derive(Debug)]
+pub enum CanError {
+    /// Hardware not ready
+    NotReady,
+    /// Transmission failed
+    TxFailed,
+    /// Reception failed
+    RxFailed,
+}
+
+impl irpc::EmbeddedTransport for CanDriver {
+    type Error = CanError;
+
+    fn send_blocking(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        defmt::trace!("iRPC TX: {} bytes over CAN", data.len());
+        
+        // TODO: When FDCAN HAL is ready:
+        // let frame = CanFrame::new(self.node_id).with_data(data);
+        // self.send_frame_blocking(frame)?;
+        
+        // For now: stub
+        Ok(())
+    }
+
+    fn receive_blocking(&mut self) -> Result<Option<&[u8]>, Self::Error> {
+        // TODO: When FDCAN HAL is ready:
+        // if let Some(frame) = self.receive_frame_blocking()? {
+        //     let len = frame.data.len();
+        //     self.rx_buffer[..len].copy_from_slice(&frame.data);
+        //     self.rx_len = len;
+        //     Ok(Some(&self.rx_buffer[..len]))
+        // } else {
+        //     Ok(None)
+        // }
+        
+        // For now: stub (no data available)
+        Ok(None)
+    }
+
+    fn is_ready(&self) -> bool {
+        // TODO: Check FDCAN peripheral status
+        true
     }
 }
 

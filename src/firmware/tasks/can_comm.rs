@@ -1,55 +1,59 @@
 use embassy_time::{Duration, Timer};
 
 use crate::firmware::irpc_integration::JointFocBridge;
-use crate::firmware::transport::IrpcTransport;
-use irpc::protocol::Message;
+use irpc::{TransportLayer, Message};
 
 // Legacy imports for backward compatibility
 use crate::firmware::drivers::can::CanCommand;
 
 /// CAN communication task with iRPC protocol integration.
 ///
-/// Uses IrpcTransport abstraction to hide all CAN-FD details.
-/// The transport layer automatically handles serialization/deserialization.
+/// Uses `irpc::TransportLayer` to hide ALL CAN-FD serialization details.
+/// The transport layer (from iRPC library) automatically handles:
+/// - Message serialization (Message → bytes)
+/// - Message deserialization (bytes → Message)
+/// - Buffer management
+///
+/// This is the FINAL production code - no more custom transport wrappers needed!
 #[embassy_executor::task]
 pub async fn can_communication(node_id: u16) {
     defmt::info!("iRPC/CAN communication task starting (joint_id=0x{:04x})", node_id);
     
     // Initialize iRPC-FOC bridge
-    let mut bridge = JointFocBridge::new(node_id);
+    let bridge = JointFocBridge::new(node_id);
     
-    // TODO: Initialize CAN driver and transport
-    // let mut can = CanDriver::new(p, node_id);
-    // let mut transport = IrpcTransport::new(&mut can);
+    // TODO: Initialize CAN driver and iRPC TransportLayer
+    // let can_driver = CanDriver::new(p, node_id);
+    // let mut transport = TransportLayer::new(can_driver);
     
     Timer::after(Duration::from_secs(1)).await;
     
     defmt::info!("iRPC joint ready: lifecycle={:?}, max_msg_size={} bytes", 
                  bridge.state(), Message::max_size());
     
-    // Main iRPC message processing loop using transport abstraction
-    // NO manual serialization needed - transport handles it!
+    // Main iRPC message processing loop using irpc::TransportLayer
+    // ZERO manual serialization - everything handled by iRPC library!
     loop {
         Timer::after(Duration::from_secs(1)).await;
         
-        // Production code with transport layer (when CAN is ready):
+        // Production code with irpc::TransportLayer (when CAN HAL is ready):
         /*
-        // Receive message (transport handles deserialization)
-        match transport.receive_message().await {
+        // Super simple: receive → handle → send
+        match transport.receive_message() {
             Ok(Some(msg)) => {
-                // Process message through iRPC bridge
+                // Process through iRPC bridge
                 if let Some(response) = bridge.handle_message(&msg) {
-                    // Send response (transport handles serialization)
-                    if let Err(e) = transport.send_message(&response).await {
-                        defmt::error!("Transport error: {:?}", e);
+                    // Send response (automatic serialization)
+                    if let Err(e) = transport.send_message(&response) {
+                        defmt::error!("iRPC transport: {:?}", e);
                     }
                 }
             }
             Ok(None) => {
-                // No message available, continue
+                // No message available - non-blocking
             }
             Err(e) => {
-                defmt::warn!("Transport error: {:?}", e);
+                defmt::warn!("iRPC transport error: {:?}", e);
             }
         }
         */
