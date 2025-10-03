@@ -484,6 +484,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "fdcan"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a745a7ef1532cc436619631a102c1d2f71e8fd4e82f1ee48c85eaa73c0487e81"
+dependencies = [
+ "bitflags 1.3.2",
+ "nb 1.1.0",
+ "paste",
+ "static_assertions",
+ "vcell",
+ "volatile-register",
+]
+
+[[package]]
 name = "fixed"
 version = "1.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -597,11 +611,14 @@ dependencies = [
  "embassy-executor",
  "embassy-stm32",
  "embassy-time",
+ "embedded-can",
+ "fdcan",
  "fixed",
  "foc",
  "heapless 0.9.1",
  "libm",
  "panic-probe",
+ "stm32g4",
 ]
 
 [[package]]
@@ -649,6 +666,12 @@ dependencies = [
  "cortex-m",
  "defmt",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pin-project-lite"
@@ -773,6 +796,17 @@ checksum = "6fd8ec3a292a0d9fc4798416a61b21da5ae50341b2e7b8d12e662bf305366097"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
+]
+
+[[package]]
+name = "stm32g4"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97bc6434066d2459f0e0834ade8b03e5c5e8d4aad84dc2ff50e56464e6104f4d"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
 ]
 
 [[package]]
