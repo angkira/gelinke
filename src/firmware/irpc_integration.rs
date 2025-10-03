@@ -214,5 +214,52 @@ mod tests {
         let response = bridge.handle_message(&target).unwrap();
         assert!(matches!(response.payload, Payload::Nack { .. }));
     }
+
+    #[test]
+    fn test_irpc_serialization() {
+        // Test NEW iRPC serialization API
+        let msg = Message {
+            header: Header {
+                source_id: 0x0000,
+                target_id: 0x0010,
+                msg_id: 42,
+            },
+            payload: Payload::SetTarget(SetTargetPayload {
+                target_angle: 90.0,
+                velocity_limit: 150.0,
+            }),
+        };
+
+        // Serialize
+        let serialized = msg.serialize().expect("Serialization should succeed");
+        
+        // Check size is within bounds
+        assert!(serialized.len() <= Message::max_size());
+        assert!(serialized.len() > 0);
+
+        // Deserialize
+        let deserialized = Message::deserialize(&serialized)
+            .expect("Deserialization should succeed");
+
+        // Verify round-trip
+        assert_eq!(deserialized.header.source_id, 0x0000);
+        assert_eq!(deserialized.header.target_id, 0x0010);
+        assert_eq!(deserialized.header.msg_id, 42);
+        
+        if let Payload::SetTarget(target) = deserialized.payload {
+            assert!((target.target_angle - 90.0).abs() < 0.01);
+            assert!((target.velocity_limit - 150.0).abs() < 0.01);
+        } else {
+            panic!("Payload should be SetTarget");
+        }
+    }
+
+    #[test]
+    fn test_irpc_max_size() {
+        // Verify max_size constant is reasonable for CAN-FD
+        let max = Message::max_size();
+        assert_eq!(max, 128);
+        assert!(max <= 64 * 2); // Within reasonable bounds for CAN-FD
+    }
 }
 

@@ -2,6 +2,7 @@ use embassy_time::{Duration, Timer};
 
 use crate::firmware::drivers::can::{CanCommand, CanFrame};
 use crate::firmware::irpc_integration::JointFocBridge;
+use irpc::protocol::Message;
 
 /// CAN communication task with iRPC protocol integration.
 ///
@@ -18,20 +19,39 @@ pub async fn can_communication(node_id: u16) {
     
     Timer::after(Duration::from_secs(1)).await;
     
-    defmt::info!("iRPC joint ready: lifecycle={:?}", bridge.state());
+    defmt::info!("iRPC joint ready: lifecycle={:?}, max_msg_size={} bytes", 
+                 bridge.state(), Message::max_size());
     
-    // Main iRPC message processing loop
-    // In production: receive CAN frames, deserialize to iRPC Messages,
-    // process with bridge.handle_message(), serialize and send responses
+    // Main iRPC message processing loop with NEW serialization API
     loop {
         Timer::after(Duration::from_secs(1)).await;
         
-        // Placeholder for message processing:
+        // Production message processing flow:
         // 1. can.receive() -> CanFrame
-        // 2. deserialize_irpc(frame) -> Message
+        // 2. Message::deserialize(&frame.data) -> Result<Message, ProtocolError>
         // 3. bridge.handle_message(&msg) -> Option<Message>
-        // 4. serialize_irpc(response) -> CanFrame
-        // 5. can.send(frame)
+        // 4. response.serialize() -> Result<Vec<u8>, ProtocolError>
+        // 5. can.send(CanFrame { data: serialized })
+        
+        // Example (when CAN is ready):
+        /*
+        if let Ok(frame) = can.receive().await {
+            match Message::deserialize(&frame.data) {
+                Ok(msg) => {
+                    if let Some(response) = bridge.handle_message(&msg) {
+                        match response.serialize() {
+                            Ok(data) => {
+                                let resp_frame = CanFrame::new(node_id).with_data(&data);
+                                can.send(resp_frame).await.ok();
+                            }
+                            Err(e) => defmt::error!("iRPC serialize error: {:?}", e),
+                        }
+                    }
+                }
+                Err(e) => defmt::warn!("iRPC deserialize error: {:?}", e),
+            }
+        }
+        */
     }
 }
 
