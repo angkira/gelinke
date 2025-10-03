@@ -10,11 +10,13 @@ defmt-rtt = "1.0.0"
 embassy-executor = { version = "0.9.1", features = ["arch-cortex-m", "executor-thread", "defmt"] }
 embassy-stm32 = { version = "0.4.0", features = ["stm32g431cb", "memory-x", "time"] }
 embassy-time = "0.5.0"
+embedded-alloc = "0.6.0"
 embedded-can = { version = "0.4.1", default-features = false }
 fdcan = { version = "0.2.1", features = ["fdcan_g0_g4_l5"] }
 fixed = "1.29"
 foc = { version = "0.3.0", default-features = false }
 heapless = { version = "0.9.1", default-features = false, features = ["defmt"] }
+irpc = { version = "0.1.0", path = "../iRPC", default-features = false, features = ["joint_api"] }
 libm = "0.2"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 stm32g4 = { version = "0.16.0", default-features = false, features = ["stm32g431", "rt"] }

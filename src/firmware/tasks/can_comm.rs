@@ -1,25 +1,37 @@
 use embassy_time::{Duration, Timer};
 
-use crate::firmware::drivers::can::{CanCommand, CanDriver, CanFrame};
+use crate::firmware::drivers::can::{CanCommand, CanFrame};
+use crate::firmware::irpc_integration::JointFocBridge;
 
-/// CAN communication task.
+/// CAN communication task with iRPC protocol integration.
 ///
-/// Handles incoming CAN commands and sends telemetry.
+/// Handles incoming iRPC messages over CAN-FD and dispatches to FOC bridge.
 #[embassy_executor::task]
 pub async fn can_communication(node_id: u16) {
-    defmt::info!("CAN communication task starting (node_id={})", node_id);
+    defmt::info!("iRPC/CAN communication task starting (joint_id=0x{:04x})", node_id);
     
-    // TODO: In real implementation, receive peripherals from main
+    // Initialize iRPC-FOC bridge
+    let mut bridge = JointFocBridge::new(node_id);
+    
+    // TODO: Initialize CAN driver
     // let mut can = CanDriver::new(p, node_id);
     
-    // For now, just a placeholder that logs startup
     Timer::after(Duration::from_secs(1)).await;
     
-    defmt::info!("CAN communication ready");
+    defmt::info!("iRPC joint ready: lifecycle={:?}", bridge.state());
     
-    // Main CAN processing loop would go here
+    // Main iRPC message processing loop
+    // In production: receive CAN frames, deserialize to iRPC Messages,
+    // process with bridge.handle_message(), serialize and send responses
     loop {
         Timer::after(Duration::from_secs(1)).await;
+        
+        // Placeholder for message processing:
+        // 1. can.receive() -> CanFrame
+        // 2. deserialize_irpc(frame) -> Message
+        // 3. bridge.handle_message(&msg) -> Option<Message>
+        // 4. serialize_irpc(response) -> CanFrame
+        // 5. can.send(frame)
     }
 }
 
