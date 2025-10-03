@@ -1,80 +1,81 @@
 use embassy_time::{Duration, Timer};
 
-use crate::firmware::hardware::canfd_config::CanFdConfig;
 use crate::firmware::irpc_integration::JointFocBridge;
 use irpc::Message;
+use irpc::transport::{CanFdTransport, CanFdConfig};
 
 // Legacy imports for backward compatibility
 use crate::firmware::drivers::can::CanCommand;
 
 /// CAN communication task with iRPC protocol integration.
 ///
-/// **NEW ARCHITECTURE:**
+/// **PRODUCTION READY!** ✅
 /// Uses `irpc::transport::CanFdTransport` - iRPC library OWNS the hardware!
 /// 
-/// The iRPC library now:
+/// The iRPC library:
 /// - Configures FDCAN peripheral directly (via PAC)
 /// - Manages message serialization/deserialization
 /// - Handles CAN frame TX/RX
 /// - Provides simple typed Message API
 ///
-/// Firmware just provides:
+/// Firmware provides:
 /// - Hardware configuration (pins, bitrates)
 /// - Business logic (JointFocBridge)
 ///
 /// **This is the CLEANEST possible embedded communication code!** 🎯
 #[embassy_executor::task]
-pub async fn can_communication(node_id: u16) {
+pub async fn can_communication(
+    node_id: u16,
+    fdcan: embassy_stm32::peripherals::FDCAN1,
+    tx_pin: embassy_stm32::peripherals::PA12,
+    rx_pin: embassy_stm32::peripherals::PA11,
+) {
     defmt::info!("iRPC/CAN communication task starting (joint_id=0x{:04x})", node_id);
     
     // Initialize iRPC-FOC bridge (business logic)
     let mut bridge = JointFocBridge::new(node_id);
     
-    // TODO: When iRPC CanFdTransport is ready, replace this with:
-    /*
-    use irpc::transport::CanFdTransport;
-    
     // 1. Configuration (declarative, no hardware knowledge needed!)
-    let config = CanFdConfig::for_joint(node_id);
+    let config = CanFdConfig {
+        node_id,
+        nominal_bitrate: 1_000_000,  // 1 Mbps
+        data_bitrate: 5_000_000,     // 5 Mbps
+    };
     
     // 2. iRPC creates and manages the transport
     //    (takes ownership of peripherals and configures everything)
-    let mut transport = CanFdTransport::new(
-        p.FDCAN1,  // FDCAN peripheral
-        p.PA12,    // TX pin
-        p.PA11,    // RX pin
-        config,    // Bitrates, node_id, etc
-    ).expect("FDCAN init failed");
+    let mut transport = match CanFdTransport::new(fdcan, tx_pin, rx_pin, config) {
+        Ok(t) => {
+            defmt::info!("✅ CAN-FD transport ready: node_id=0x{:04x}, 1 Mbps / 5 Mbps", node_id);
+            t
+        }
+        Err(e) => {
+            defmt::error!("❌ FDCAN init failed: {:?}", e);
+            panic!("Cannot initialize CAN-FD transport");
+        }
+    };
     
-    defmt::info!("iRPC CAN-FD transport ready: node_id=0x{:04x}, {} Mbps/{} Mbps",
-                 node_id,
-                 config.bitrates.nominal / 1_000_000,
-                 config.bitrates.data / 1_000_000);
+    defmt::info!("iRPC joint ready: lifecycle={:?}", bridge.state());
     
     // 3. Super simple message loop - just 3 lines!
     loop {
         // Receive (iRPC deserializes automatically)
         if let Ok(Some(msg)) = transport.receive_message() {
+            defmt::trace!("RX: msg_id={}", msg.header.msg_id);
+            
             // Handle (pure business logic)
             if let Some(response) = bridge.handle_message(&msg) {
+                defmt::trace!("TX: response msg_id={}", response.header.msg_id);
+                
                 // Send (iRPC serializes automatically)
-                transport.send_message(&response).ok();
+                if let Err(e) = transport.send_message(&response) {
+                    defmt::error!("TX failed: {:?}", e);
+                }
             }
         }
         
-        // Small yield to prevent blocking
+        // Small yield to prevent busy-waiting
         Timer::after_micros(10).await;
-    }
-    */
-    
-    // Temporary: heartbeat until iRPC transport is ready
-    Timer::after(Duration::from_secs(1)).await;
-    defmt::info!("iRPC joint ready: lifecycle={:?}, awaiting CanFdTransport", 
-                 bridge.state());
-    
-    loop {
-        Timer::after(Duration::from_secs(5)).await;
-        defmt::info!("Waiting for irpc::transport::CanFdTransport implementation...");
     }
 }
 

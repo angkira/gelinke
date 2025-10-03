@@ -6,7 +6,7 @@ use crate::firmware::config::{MotorConfig, EncoderConfig};
 use crate::firmware::control::observer::{LuenbergerObserver, ObserverConfig};
 use crate::firmware::control::position::{PositionController, PositionConfig};
 use crate::firmware::control::velocity::{VelocityController, VelocityConfig};
-use crate::firmware::drivers::can::{CanDriver, DEFAULT_NODE_ID};
+use crate::firmware::drivers::can::DEFAULT_NODE_ID;
 
 /// System state shared between tasks.
 pub struct SystemState {
@@ -32,16 +32,20 @@ impl Default for SystemState {
 /// Initialize system and spawn tasks.
 pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     defmt::info!("=== Joint Firmware Initialization ===");
-    
-    // Initialize CAN driver
-    let _can = CanDriver::new(p, DEFAULT_NODE_ID);
-    defmt::info!("CAN-FD: initialized");
+    defmt::info!("Target: STM32G431CB @ 170 MHz");
+    defmt::info!("Framework: Embassy + iRPC");
     
     // TODO: Initialize other drivers (PWM, ADC, Encoder)
     // This requires proper peripheral splitting
     
-    // Spawn CAN communication task
-    spawner.spawn(crate::firmware::tasks::can_comm::can_communication(DEFAULT_NODE_ID)).ok();
+    // Spawn CAN communication task with iRPC transport
+    // iRPC library owns FDCAN peripheral and configures everything
+    spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
+        DEFAULT_NODE_ID,
+        p.FDCAN1,  // FDCAN peripheral (iRPC takes ownership)
+        p.PA12,    // TX pin
+        p.PA11,    // RX pin
+    )).expect("Failed to spawn CAN task");
     
     // Spawn FOC control loop
     spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
