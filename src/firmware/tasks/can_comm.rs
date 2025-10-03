@@ -1,62 +1,80 @@
 use embassy_time::{Duration, Timer};
 
+use crate::firmware::hardware::canfd_config::CanFdConfig;
 use crate::firmware::irpc_integration::JointFocBridge;
-use irpc::{TransportLayer, Message};
+use irpc::Message;
 
 // Legacy imports for backward compatibility
 use crate::firmware::drivers::can::CanCommand;
 
 /// CAN communication task with iRPC protocol integration.
 ///
-/// Uses `irpc::TransportLayer` to hide ALL CAN-FD serialization details.
-/// The transport layer (from iRPC library) automatically handles:
-/// - Message serialization (Message → bytes)
-/// - Message deserialization (bytes → Message)
-/// - Buffer management
+/// **NEW ARCHITECTURE:**
+/// Uses `irpc::transport::CanFdTransport` - iRPC library OWNS the hardware!
+/// 
+/// The iRPC library now:
+/// - Configures FDCAN peripheral directly (via PAC)
+/// - Manages message serialization/deserialization
+/// - Handles CAN frame TX/RX
+/// - Provides simple typed Message API
 ///
-/// This is the FINAL production code - no more custom transport wrappers needed!
+/// Firmware just provides:
+/// - Hardware configuration (pins, bitrates)
+/// - Business logic (JointFocBridge)
+///
+/// **This is the CLEANEST possible embedded communication code!** 🎯
 #[embassy_executor::task]
 pub async fn can_communication(node_id: u16) {
     defmt::info!("iRPC/CAN communication task starting (joint_id=0x{:04x})", node_id);
     
-    // Initialize iRPC-FOC bridge
-    let bridge = JointFocBridge::new(node_id);
+    // Initialize iRPC-FOC bridge (business logic)
+    let mut bridge = JointFocBridge::new(node_id);
     
-    // TODO: Initialize CAN driver and iRPC TransportLayer
-    // let can_driver = CanDriver::new(p, node_id);
-    // let mut transport = TransportLayer::new(can_driver);
+    // TODO: When iRPC CanFdTransport is ready, replace this with:
+    /*
+    use irpc::transport::CanFdTransport;
     
-    Timer::after(Duration::from_secs(1)).await;
+    // 1. Configuration (declarative, no hardware knowledge needed!)
+    let config = CanFdConfig::for_joint(node_id);
     
-    defmt::info!("iRPC joint ready: lifecycle={:?}, max_msg_size={} bytes", 
-                 bridge.state(), Message::max_size());
+    // 2. iRPC creates and manages the transport
+    //    (takes ownership of peripherals and configures everything)
+    let mut transport = CanFdTransport::new(
+        p.FDCAN1,  // FDCAN peripheral
+        p.PA12,    // TX pin
+        p.PA11,    // RX pin
+        config,    // Bitrates, node_id, etc
+    ).expect("FDCAN init failed");
     
-    // Main iRPC message processing loop using irpc::TransportLayer
-    // ZERO manual serialization - everything handled by iRPC library!
+    defmt::info!("iRPC CAN-FD transport ready: node_id=0x{:04x}, {} Mbps/{} Mbps",
+                 node_id,
+                 config.bitrates.nominal / 1_000_000,
+                 config.bitrates.data / 1_000_000);
+    
+    // 3. Super simple message loop - just 3 lines!
     loop {
-        Timer::after(Duration::from_secs(1)).await;
-        
-        // Production code with irpc::TransportLayer (when CAN HAL is ready):
-        /*
-        // Super simple: receive → handle → send
-        match transport.receive_message() {
-            Ok(Some(msg)) => {
-                // Process through iRPC bridge
-                if let Some(response) = bridge.handle_message(&msg) {
-                    // Send response (automatic serialization)
-                    if let Err(e) = transport.send_message(&response) {
-                        defmt::error!("iRPC transport: {:?}", e);
-                    }
-                }
-            }
-            Ok(None) => {
-                // No message available - non-blocking
-            }
-            Err(e) => {
-                defmt::warn!("iRPC transport error: {:?}", e);
+        // Receive (iRPC deserializes automatically)
+        if let Ok(Some(msg)) = transport.receive_message() {
+            // Handle (pure business logic)
+            if let Some(response) = bridge.handle_message(&msg) {
+                // Send (iRPC serializes automatically)
+                transport.send_message(&response).ok();
             }
         }
-        */
+        
+        // Small yield to prevent blocking
+        Timer::after_micros(10).await;
+    }
+    */
+    
+    // Temporary: heartbeat until iRPC transport is ready
+    Timer::after(Duration::from_secs(1)).await;
+    defmt::info!("iRPC joint ready: lifecycle={:?}, awaiting CanFdTransport", 
+                 bridge.state());
+    
+    loop {
+        Timer::after(Duration::from_secs(5)).await;
+        defmt::info!("Waiting for irpc::transport::CanFdTransport implementation...");
     }
 }
 

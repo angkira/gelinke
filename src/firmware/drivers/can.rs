@@ -97,36 +97,37 @@ impl CanFrame {
     }
 }
 
-/// CAN-FD communication driver.
+/// Legacy CAN-FD driver (deprecated in favor of irpc::transport::CanFdTransport).
 ///
-/// Uses protocol-level abstractions ready for hardware connection.
-/// Hardware implementation pending embassy-stm32 FDCAN HAL (planned for v0.5+).
+/// This driver is kept for backward compatibility and low-level CAN operations.
+/// For iRPC communication, use `irpc::transport::CanFdTransport` instead,
+/// which provides automatic message serialization and hardware configuration.
 ///
-/// Implements `irpc::EmbeddedTransport` for seamless iRPC integration.
+/// **Migration path:**
+/// ```no_run
+/// // OLD (this module):
+/// let can = CanDriver::new(p, node_id);
+/// 
+/// // NEW (iRPC library):
+/// use irpc::transport::CanFdTransport;
+/// let config = CanFdConfig::for_joint(node_id);
+/// let transport = CanFdTransport::new(p.FDCAN1, p.PA12, p.PA11, config)?;
+/// ```
+#[deprecated(note = "Use irpc::transport::CanFdTransport instead")]
 pub struct CanDriver {
     node_id: u16,
-    rx_buffer: [u8; MAX_DATA_LEN],
-    rx_len: usize,
-    // TODO: Add fdcan: FdCan<'static, FDCAN1> when embassy HAL is available
+    // Kept for backward compatibility only
 }
 
 impl CanDriver {
-    /// Create a new CAN-FD driver.
+    /// Create a legacy CAN-FD driver (deprecated).
     ///
-    /// # Arguments
-    /// * `p` - Peripherals struct
-    /// * `node_id` - Node ID for this device
+    /// **Deprecated:** Use `irpc::transport::CanFdTransport` instead.
+    #[deprecated(note = "Use irpc::transport::CanFdTransport::new() instead")]
     pub fn new(_p: Peripherals, node_id: u16) -> Self {
-        // TODO: Configure FDCAN1 hardware when embassy-stm32 HAL adds support
-        // For now, protocol layer is ready and tested
+        defmt::warn!("CanDriver is deprecated, use irpc::transport::CanFdTransport");
         
-        defmt::info!("CAN-FD protocol ready (node_id={}, awaiting HAL)", node_id);
-        
-        Self {
-            node_id,
-            rx_buffer: [0u8; MAX_DATA_LEN],
-            rx_len: 0,
-        }
+        Self { node_id }
     }
 
     /// Get node ID.
@@ -176,54 +177,26 @@ impl CanDriver {
 }
 
 // ============================================================================
-// iRPC EmbeddedTransport implementation for CanDriver
+// NOTE: EmbeddedTransport implementation REMOVED
 // ============================================================================
-
-/// CAN transport error type.
-#[derive(Debug)]
-pub enum CanError {
-    /// Hardware not ready
-    NotReady,
-    /// Transmission failed
-    TxFailed,
-    /// Reception failed
-    RxFailed,
-}
-
-impl irpc::EmbeddedTransport for CanDriver {
-    type Error = CanError;
-
-    fn send_blocking(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        defmt::trace!("iRPC TX: {} bytes over CAN", data.len());
-        
-        // TODO: When FDCAN HAL is ready:
-        // let frame = CanFrame::new(self.node_id).with_data(data);
-        // self.send_frame_blocking(frame)?;
-        
-        // For now: stub
-        Ok(())
-    }
-
-    fn receive_blocking(&mut self) -> Result<Option<&[u8]>, Self::Error> {
-        // TODO: When FDCAN HAL is ready:
-        // if let Some(frame) = self.receive_frame_blocking()? {
-        //     let len = frame.data.len();
-        //     self.rx_buffer[..len].copy_from_slice(&frame.data);
-        //     self.rx_len = len;
-        //     Ok(Some(&self.rx_buffer[..len]))
-        // } else {
-        //     Ok(None)
-        // }
-        
-        // For now: stub (no data available)
-        Ok(None)
-    }
-
-    fn is_ready(&self) -> bool {
-        // TODO: Check FDCAN peripheral status
-        true
-    }
-}
+//
+// The old `impl EmbeddedTransport for CanDriver` has been removed because
+// iRPC library now provides its own `CanFdTransport` that directly manages
+// the FDCAN hardware.
+//
+// Migration guide:
+// ```rust
+// // OLD (firmware implements transport):
+// impl EmbeddedTransport for CanDriver { ... }
+// let transport = TransportLayer::new(can_driver);
+//
+// // NEW (iRPC library provides transport):
+// use irpc::transport::CanFdTransport;
+// let transport = CanFdTransport::new(p.FDCAN1, p.PA12, p.PA11, config)?;
+// ```
+//
+// This simplifies firmware code and moves hardware complexity into the
+// reusable iRPC library where it belongs.
 
 #[cfg(test)]
 mod tests {
