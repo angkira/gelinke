@@ -12,6 +12,9 @@ log.html
 report.html
 *.robot.xml
 
+# Tools (submodule or external)
+/tools/
+
 # IDE
 .vscode/
 .idea/
