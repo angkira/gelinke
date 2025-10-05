@@ -1,100 +1,11 @@
-17:11:28.0794 [INFO] System bus created.
-17:11:29.3091 [INFO] sysbus: Loading segment of 472 bytes length at 0x8000000.
-17:11:29.3093 [INFO] sysbus: Loading segment of 17504 bytes length at 0x80001D8.
-17:11:29.3094 [INFO] sysbus: Loading segment of 7068 bytes length at 0x8004638.
-17:11:29.3094 [INFO] sysbus: Loading segment of 168 bytes length at 0x80061D8.
-17:11:29.3094 [INFO] sysbus: Loading segment of 6164 bytes length at 0x200000A8.
-17:11:29.3790 [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
-17:11:29.3790 [INFO] cpu: Setting initial values: PC = 0x80001D9, SP = 0x20008000.
-17:11:29.3851 [INFO] machine-0: Machine started.
-17:11:29.4591 [WARNING] usart1: Unhandled write to offset 0x2C, value 0x0.
-17:11:29.4591 [WARNING] usart1: Unhandled write to offset 0x0. Unhandled bits: [29] when writing value 0x2000000D. Tags: RESERVED (0x1).
-17:11:29.4592 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4592 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4592 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4595 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4597 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4606 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4608 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4609 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4628 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4656 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4658 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4667 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4669 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4670 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4678 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4690 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4691 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4696 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4698 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4699 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4704 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4707 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4713 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4714 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4714 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4714 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4715 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4717 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4718 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4751 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4762 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4763 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4775 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.4779 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.4790 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.4795 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5262 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5263 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5263 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5263 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5264 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5264 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5264 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5264 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5265 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5266 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5266 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5266 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5267 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5267 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5267 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5268 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5268 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5268 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5269 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:29.5269 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:29.5269 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:29.5270 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:31.5206 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:31.5206 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:31.5350 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:31.5351 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:31.5351 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:31.5351 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:33.3157 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:33.3157 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:33.3158 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:33.3158 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:33.3158 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:33.3159 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:34.8292 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:34.8292 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:34.8293 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:34.8293 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:34.8293 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:34.8293 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:36.0585 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:36.0586 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:36.0603 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:36.0604 [WARNING] dma1: Unhandled write to offset 0x4. Unhandled bits: [3] when writing value 0xE. Tags: Transfer error flag clear for channel 0 (CTEIF0) (0x1).
-17:11:36.0604 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3, 12-13] when writing value 0x309A. Tags: Transfer error interrupt enable (TEIE) (0x1), Priority level (PL) (0x3).
-17:11:36.0604 [WARNING] dma1: Unhandled write to offset 0x8. Unhandled bits: [3] when writing value 0xA. Tags: Transfer error interrupt enable (TEIE) (0x1).
-17:11:37.2745 [INFO] machine-0: Machine paused.
-17:11:37.4396 [INFO] machine-0: Machine resumed.
+14:08:51.7464 [INFO] System bus created.
+14:08:51.9923 [INFO] sysbus: Loading segment of 472 bytes length at 0x8000000.
+14:08:51.9926 [INFO] sysbus: Loading segment of 26064 bytes length at 0x80001D8.
+14:08:51.9927 [INFO] sysbus: Loading segment of 9872 bytes length at 0x80067A8.
+14:08:51.9928 [INFO] sysbus: Loading segment of 168 bytes length at 0x8008E38.
+14:08:51.9929 [INFO] sysbus: Loading segment of 6672 bytes length at 0x200000A8.
+14:08:52.0196 [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+14:08:52.0197 [INFO] cpu: Setting initial values: PC = 0x80001D9, SP = 0x20008000.
+14:08:52.0201 [INFO] machine-0: Machine started.
+17:18:50.9536 [INFO] machine-0: Machine paused.
+17:18:51.3168 [INFO] machine-0: Machine resumed.

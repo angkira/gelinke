@@ -85,23 +85,48 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     // Send log messages via channel (async)
     uart_log::log(LogMessage::Init);
     
-    // Spawn CAN communication task with iRPC transport
-    // iRPC library owns FDCAN peripheral and configures everything
-    defmt::info!("[TRACE] About to spawn CAN task...");
-    spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
-        DEFAULT_NODE_ID,
-        p.FDCAN1,  // FDCAN peripheral (iRPC takes ownership)
-        p.PA12,    // TX pin
-        p.PA11,    // RX pin
-    )).ok();
-    defmt::info!("[TRACE] ✓ CAN task spawned!");
-    uart_log::log(LogMessage::CanStarted);
+    // Spawn CAN communication task
+    // In Renode mock mode, use a no-op task that doesn't block on CAN messages
+    #[cfg(feature = "renode-mock")]
+    {
+        defmt::info!("[TRACE] Spawning MOCK CAN task (Renode mode)...");
+        spawner.spawn(crate::firmware::tasks::mock_can::can_communication_mock(
+            DEFAULT_NODE_ID,
+        )).ok();
+        defmt::info!("[TRACE] ✓ MOCK CAN task spawned!");
+    }
+    
+    // In production mode, use real iRPC CAN transport
+    #[cfg(not(feature = "renode-mock"))]
+    {
+        defmt::info!("[TRACE] About to spawn CAN task...");
+        spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
+            DEFAULT_NODE_ID,
+            p.FDCAN1,  // FDCAN peripheral (iRPC takes ownership)
+            p.PA12,    // TX pin
+            p.PA11,    // RX pin
+        )).ok();
+        defmt::info!("[TRACE] ✓ CAN task spawned!");
+        uart_log::log(LogMessage::CanStarted);
+    }
     
     // Spawn FOC control loop
-    defmt::info!("[TRACE] About to spawn FOC task...");
-    spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
-    defmt::info!("[TRACE] ✓ FOC task spawned!");
-    uart_log::log(LogMessage::FocStarted);
+    // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
+    #[cfg(feature = "renode-mock")]
+    {
+        defmt::info!("[TRACE] Spawning MOCK FOC task (1 Hz mode)...");
+        spawner.spawn(crate::firmware::tasks::mock_foc::control_loop_mock()).ok();
+        defmt::info!("[TRACE] ✓ MOCK FOC task spawned!");
+    }
+    
+    // In production mode, use real 10 kHz FOC loop
+    #[cfg(not(feature = "renode-mock"))]
+    {
+        defmt::info!("[TRACE] About to spawn FOC task...");
+        spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
+        defmt::info!("[TRACE] ✓ FOC task spawned!");
+        uart_log::log(LogMessage::FocStarted);
+    }
     
     defmt::info!("=== System Ready ===");
     uart_log::log(LogMessage::Ready);
