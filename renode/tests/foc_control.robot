@@ -6,6 +6,7 @@ Suite Setup       Setup
 Suite Teardown    Teardown
 Test Setup        Reset Emulation
 Resource          ${RENODEKEYWORDS}
+Resource          test_helpers.robot
 
 *** Variables ***
 ${UART}                     sysbus.usart1
@@ -13,6 +14,7 @@ ${TIM1}                     sysbus.tim1
 ${ADC1}                     sysbus.adc1
 ${ADC2}                     sysbus.adc2
 ${SPI1}                     sysbus.spi1
+${PLATFORM}                 ${CURDIR}/../stm32g431cb_with_mocks.repl
 ${ELF}                      ${CURDIR}/../../target/thumbv7em-none-eabihf/release/joint_firmware
 ${LOG_TIMEOUT}              5
 
