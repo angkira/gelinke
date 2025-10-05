@@ -1,1 +1,24 @@
-/target
+# Rust / Cargo
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Renode test artifacts
+/logs/
+/snapshots/
+robot_output.xml
+log.html
+report.html
+*.robot.xml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
