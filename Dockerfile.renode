@@ -1,0 +1,66 @@
+# Dockerfile для Renode эмуляции STM32G431CB
+FROM ubuntu:22.04
+
+# Избежать интерактивных prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# Установить базовые зависимости
+RUN apt-get update && apt-get install -y \
+  wget \
+  curl \
+  git \
+  python3 \
+  python3-pip \
+  # Mono и GTK# зависимости для Renode
+  mono-complete \
+  gtk-sharp2 \
+  gtk-sharp2-gapi \
+  libglade2.0-cil-dev \
+  libglib2.0-cil-dev \
+  libgtk2.0-cil-dev \
+  libgtk2.0-0 \
+  # Системные утилиты
+  policykit-1 \
+  screen \
+  uml-utilities \
+  # Для GDB debugging
+  gdb-multiarch \
+  # Для X11 forwarding (опционально)
+  xvfb \
+  x11vnc \
+  && rm -rf /var/lib/apt/lists/*
+
+# Установить Renode
+ARG RENODE_VERSION=1.15.0
+RUN wget -q https://github.com/renode/renode/releases/download/v${RENODE_VERSION}/renode_${RENODE_VERSION}_amd64.deb && \
+  dpkg -i renode_${RENODE_VERSION}_amd64.deb || true && \
+  apt-get install -f -y && \
+  rm renode_${RENODE_VERSION}_amd64.deb
+
+# Установить Python зависимости для Robot Framework тестов
+RUN pip3 install --no-cache-dir -r /opt/renode/tests/requirements.txt
+
+# Установить Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Установить ARM target
+RUN rustup target add thumbv7em-none-eabihf
+
+# Установить дополнительные инструменты
+RUN cargo install cargo-binutils && \
+  rustup component add llvm-tools-preview
+
+# Рабочая директория
+WORKDIR /workspace
+
+# Порты для GDB debugging
+EXPOSE 3333
+
+# Порт для VNC (если нужна GUI)
+EXPOSE 5900
+
+# По умолчанию запускать bash
+CMD ["/bin/bash"]
+

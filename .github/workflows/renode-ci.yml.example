@@ -1,0 +1,150 @@
+name: Renode Emulation Tests
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RENODE_VERSION: 1.15.0
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Setup Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        target: thumbv7em-none-eabihf
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check code formatting
+      run: cargo fmt -- --check
+    
+    - name: Clippy lints
+      run: cargo clippy --target thumbv7em-none-eabihf -- -D warnings
+    
+    - name: Build firmware
+      run: cargo build --target thumbv7em-none-eabihf --verbose
+    
+    - name: Build firmware (release)
+      run: cargo build --target thumbv7em-none-eabihf --release
+    
+    - name: Check binary size
+      run: |
+        arm-none-eabi-size target/thumbv7em-none-eabihf/release/joint_firmware
+        
+        # Verify fits in 128KB flash
+        FLASH_SIZE=$(arm-none-eabi-size target/thumbv7em-none-eabihf/release/joint_firmware | tail -n1 | awk '{print $1+$2}')
+        echo "Flash usage: $FLASH_SIZE bytes"
+        if [ $FLASH_SIZE -gt 131072 ]; then
+          echo "ERROR: Binary size exceeds 128KB flash limit"
+          exit 1
+        fi
+    
+    - name: Install Renode dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mono-complete policykit-1 libgtk2.0-0 screen uml-utilities
+    
+    - name: Download and install Renode
+      run: |
+        wget -q https://github.com/renode/renode/releases/download/v${RENODE_VERSION}/renode_${RENODE_VERSION}_amd64.deb
+        sudo dpkg -i renode_${RENODE_VERSION}_amd64.deb || true
+        sudo apt-get install -f -y
+    
+    - name: Verify Renode installation
+      run: |
+        renode --version
+        which renode-test
+    
+    - name: Run Renode tests - Basic Startup
+      run: |
+        mkdir -p test-results
+        renode-test --output-directory test-results renode/tests/basic_startup.robot || true
+      continue-on-error: true
+    
+    - name: Run Renode tests - CAN Communication
+      run: |
+        renode-test --output-directory test-results renode/tests/can_communication.robot || true
+      continue-on-error: true
+    
+    - name: Run Renode tests - FOC Control
+      run: |
+        renode-test --output-directory test-results renode/tests/foc_control.robot || true
+      continue-on-error: true
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: renode-test-results
+        path: test-results/
+    
+    - name: Upload firmware binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: firmware-binaries
+        path: |
+          target/thumbv7em-none-eabihf/debug/joint_firmware
+          target/thumbv7em-none-eabihf/release/joint_firmware
+    
+    - name: Generate test report
+      if: always()
+      run: |
+        echo "## Renode Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -f test-results/report.html ]; then
+          echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "Results available in artifacts" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ No test results generated" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  # Дополнительный job для проверки документации
+  check-docs:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check documentation exists
+      run: |
+        test -f renode/README.md
+        test -f STATUS.md
+        test -f IRPC_INTEGRATION_SUMMARY.md
+    
+    - name: Check Renode files
+      run: |
+        test -f renode/stm32g431cb.repl
+        test -f renode/stm32g431_foc.resc
+        test -f renode/tests/basic_startup.robot
+

@@ -3,10 +3,6 @@ target = "thumbv7em-none-eabihf"
 
 [target.thumbv7em-none-eabihf]
 runner = "probe-run --chip STM32G431CB"
-rustflags = [
-    "-C",
-    "link-arg=-Tmemory.x",
-]
 
 [net]
 git-fetch-with-cli = true

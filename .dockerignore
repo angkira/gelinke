@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+test-results/
+
+# Logs
+*.log
+
+# Docs (не нужны в image)
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+

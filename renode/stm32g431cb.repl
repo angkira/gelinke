@@ -1,0 +1,336 @@
+// STM32G431CB - Based on STM32G0 platform with adjustments for G4
+// Main differences: Cortex-M4 (vs M0+), 128KB flash, 32KB RAM
+
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x20000  // 128KB
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x8000   // 32KB
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4"
+    nvic: nvic
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 170000000
+    IRQ -> cpu@0
+
+// UART/USART peripherals
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 170000000
+    IRQ -> nvic@37
+
+usart2: UART.STM32F7_USART @ sysbus 0x40004400
+    frequency: 170000000
+    IRQ -> nvic@38
+
+usart3: UART.STM32F7_USART @ sysbus 0x40004800
+    frequency: 170000000
+    IRQ -> nvic@39
+
+lpuart1: UART.STM32F7_USART @ sysbus 0x40008000
+    frequency: 170000000
+    IRQ -> nvic@70
+
+// Using Python peripheral for GPIO to log AF configuration
+// GPIO Ports - используем готовые STM32_GPIOPort из Renode
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
+    modeResetValue: 0xABFFFFFF  // STM32G4 default: most pins analog
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
+    modeResetValue: 0xFFFFFEBF  // STM32G4 default
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x48000C00, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x48001000, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortF: GPIOPort.STM32_GPIOPort @ sysbus <0x48001400, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+// EXTI - External Interrupt Controller  
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
+    numberOfOutputLines: 43
+    [0, 1] -> nvicInput5@[0, 1]
+    [2, 3] -> nvicInput6@[0, 1]
+    [4-15] -> nvicInput7@[0-11]
+
+nvicInput5: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@5
+
+nvicInput6: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@6
+
+nvicInput7: Miscellaneous.CombinedInput
+    numberOfInputs: 12
+    -> nvic@7
+
+rcc: Python.PythonPeripheral @ sysbus <0x40021000, +0x400>
+    size: 0x400
+    initable: true
+    script: '''
+if request.isInit:
+    rcc_regs = {
+        'CR': 0x00000063,      # HSI on and ready (bit 1 = HSIRDY, bit 8 = HSION)
+        'CFGR': 0x00000000,
+        'PLLCFGR': 0x00001000,
+        'APB2ENR': 0x00000000,
+        'AHB1ENR': 0x00000000,
+        'AHB2ENR': 0x00000000,
+        'CCIPR': 0x00000000,   # Peripherals independent clock config
+        'CCIPR2': 0x00000000,  # Peripherals independent clock config 2
+        'CRRCR': 0x00000000,   # Clock recovery RC register
+    }
+    self.NoisyLog("RCC initialized")
+
+offset = request.offset
+if request.isWrite:
+    self.NoisyLog("[RCC WRITE] offset=0x%x value=0x%x" % (offset, request.value))
+    if offset == 0x0:      # CR
+        # When PLLON (bit 24) is set, immediately set PLLRDY (bit 25)
+        if request.value & (1 << 24):
+            request.value |= (1 << 25)  # Set PLLRDY
+        # When HSION (bit 8) is set, set HSIRDY (bit 10)
+        if request.value & (1 << 8):
+            request.value |= (1 << 10)  # Set HSIRDY
+        rcc_regs['CR'] = request.value
+        self.NoisyLog("[RCC] CR set to 0x%x (PLLON=%d, PLLRDY=%d, HSION=%d, HSIRDY=%d)" % 
+                     (request.value, (request.value >> 24) & 1, (request.value >> 25) & 1,
+                      (request.value >> 8) & 1, (request.value >> 10) & 1))
+    elif offset == 0x4:    # PLLCFGR
+        rcc_regs['PLLCFGR'] = request.value
+    elif offset == 0x8:    # CFGR
+        # Mirror SW (bits 0-1) to SWS (bits 2-3) immediately
+        sw = request.value & 0x3
+        sws = sw << 2
+        rcc_regs['CFGR'] = (request.value & ~(0x3 << 2)) | sws
+        self.NoisyLog("[RCC] CFGR set to 0x%x (SW=%d, SWS=%d)" % (rcc_regs['CFGR'], sw, sw))
+    elif offset == 0x48:   # AHB1ENR
+        rcc_regs['AHB1ENR'] = request.value
+        self.NoisyLog("[RCC] AHB1ENR set to 0x%x (DMA1 bit 0 = %d)" % (request.value, request.value & 1))
+    elif offset == 0x4C:   # AHB2ENR
+        rcc_regs['AHB2ENR'] = request.value
+        self.NoisyLog("[RCC] AHB2ENR set to 0x%x (GPIOA bit 0 = %d)" % (request.value, request.value & 1))
+    elif offset == 0x60:   # APB2ENR
+        rcc_regs['APB2ENR'] = request.value
+        self.NoisyLog("[RCC] APB2ENR set to 0x%x (USART1 bit 14 = %d)" % (request.value, (request.value >> 14) & 1))
+    elif offset == 0x90:   # CCIPR
+        rcc_regs['CCIPR'] = request.value
+    elif offset == 0x94:   # CCIPR2
+        # Some bits may have ready status - set ready bit when enable bit is set
+        # Bit 0 = enable, bit 1 = ready (assumption based on observed behavior)
+        if request.value & 1:
+            request.value |= 2  # Set ready bit
+        rcc_regs['CCIPR2'] = request.value
+        self.NoisyLog("[RCC] CCIPR2 set to 0x%x" % request.value)
+    elif offset == 0x98:   # CRRCR (Clock Recovery RC Register)
+        # When HSI48ON (bit 0) is set, immediately set HSI48RDY (bit 1)
+        if request.value & 1:
+            request.value |= 2  # Set HSI48RDY
+        rcc_regs['CRRCR'] = request.value
+        self.NoisyLog("[RCC] CRRCR set to 0x%x (HSI48ON=%d, HSI48RDY=%d)" % 
+                     (request.value, request.value & 1, (request.value >> 1) & 1))
+    elif offset == 0xC:    # PLLCFGR
+        rcc_regs['PLLCFGR'] = request.value
+
+if request.isRead:
+    if offset == 0x0:      # CR
+        request.value = rcc_regs['CR']
+    elif offset == 0x4:    # PLLCFGR
+        request.value = rcc_regs['PLLCFGR']
+    elif offset == 0xC:    # PLLCFGR (duplicate for compatibility)
+        request.value = rcc_regs['PLLCFGR']
+    elif offset == 0x8:    # CFGR
+        # SWS (bits 2-3) should mirror SW from write
+        request.value = rcc_regs['CFGR']
+    elif offset == 0x48:   # AHB1ENR
+        request.value = rcc_regs['AHB1ENR']
+    elif offset == 0x4C:   # AHB2ENR
+        request.value = rcc_regs['AHB2ENR']
+    elif offset == 0x60:   # APB2ENR
+        request.value = rcc_regs['APB2ENR']
+    elif offset == 0x90:   # CCIPR
+        request.value = rcc_regs['CCIPR']
+    elif offset == 0x94:   # CCIPR2
+        request.value = rcc_regs['CCIPR2']
+    elif offset == 0x98:   # CRRCR
+        request.value = rcc_regs['CRRCR']
+    else:
+        request.value = 0xFFFFFFFF
+    # self.NoisyLog("[RCC READ] offset=0x%x value=0x%x" % (offset, request.value))
+'''
+
+pwr: Python.PythonPeripheral @ sysbus <0x40007000, +0x400>
+    size: 0x400
+    initable: true
+    script: '''
+if request.isInit:
+    self.NoisyLog("PWR initialized")
+if request.isWrite:
+    self.NoisyLog("[PWR WRITE] offset=0x%x value=0x%x" % (request.offset, request.value))
+if request.isRead:
+    request.value = 0xFFFFFFFF
+    self.NoisyLog("[PWR READ] offset=0x%x value=0x%x" % (request.offset, request.value))
+'''
+
+dbgmcu: Python.PythonPeripheral @ sysbus <0xE0042000, +0x100>
+    size: 0x100
+    initable: true
+    script: "request.value = 0"
+
+flash_ctrl: Python.PythonPeripheral @ sysbus <0x40022000, +0x400>
+    size: 0x400
+    initable: true
+    script: '''
+if request.isInit:
+    flash_regs = {'ACR': 0x00000600}  # Default: 6 wait states
+if request.isWrite:
+    if request.offset == 0x0:  # ACR
+        flash_regs['ACR'] = request.value
+if request.isRead:
+    if request.offset == 0x0:  # ACR  
+        request.value = flash_regs['ACR']
+    else:
+        request.value = 0
+'''
+
+// Timers
+tim1: Timers.STM32_Timer @ sysbus <0x40012C00, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@24
+
+tim2: Timers.STM32_Timer @ sysbus <0x40000000, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFFFFFF  // 32-bit timer
+    -> nvic@28
+
+tim3: Timers.STM32_Timer @ sysbus <0x40000400, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@29
+
+tim4: Timers.STM32_Timer @ sysbus <0x40000800, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@30
+
+tim6: Timers.STM32_Timer @ sysbus <0x40001000, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@54
+
+tim7: Timers.STM32_Timer @ sysbus <0x40001400, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@55
+
+tim8: Timers.STM32_Timer @ sysbus <0x40013400, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@46
+
+tim15: Timers.STM32_Timer @ sysbus <0x40014000, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@24
+
+tim16: Timers.STM32_Timer @ sysbus <0x40014400, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@25
+
+tim17: Timers.STM32_Timer @ sysbus <0x40014800, +0x400>
+    frequency: 170000000
+    initialLimit: 0xFFFF
+    -> nvic@26
+
+// SPI peripherals
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    IRQ -> nvic@35
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+    IRQ -> nvic@36
+
+spi3: SPI.STM32SPI @ sysbus 0x40003C00
+    IRQ -> nvic@51
+
+// I2C peripherals
+i2c1: I2C.STM32F7_I2C @ sysbus 0x40005400
+    EventInterrupt -> nvic@31
+    ErrorInterrupt -> nvic@32
+
+i2c2: I2C.STM32F7_I2C @ sysbus 0x40005800
+    EventInterrupt -> nvic@33
+    ErrorInterrupt -> nvic@34
+
+i2c3: I2C.STM32F7_I2C @ sysbus 0x40005C00
+    EventInterrupt -> nvic@72
+    ErrorInterrupt -> nvic@73
+
+// RTC - Real Time Clock
+rtc: Timers.STM32F4_RTC @ sysbus 0x40002800
+    AlarmIRQ -> exti@17
+
+// ADC peripherals (simplified - just stubs)
+adc1: Analog.STM32_ADC @ sysbus 0x50000000
+    IRQ -> nvic@18
+
+adc2: Analog.STM32_ADC @ sysbus 0x50000100
+    IRQ -> nvic@18
+
+// FDCAN Message RAM - shared memory for all FDCAN instances
+canMessageRAM: Memory.ArrayMemory @ sysbus <0x4000A400, +0x2800>
+    size: 0x2800
+
+// FDCAN1 - используем MCAN (Bosch M_CAN IP как в STM32H7)
+fdcan1: CAN.MCAN @ sysbus 0x40006400
+    Line0 -> nvic@19      // FDCAN1_IT0
+    Line1 -> nvic@20      // FDCAN1_IT1
+    messageRAM: canMessageRAM
+
+dma1: DMA.STM32G0DMA @ sysbus 0x40020000
+    numberOfChannels: 8
+    [0-7] -> nvic@[11-17, 47]
+
+dma2: DMA.STM32G0DMA @ sysbus 0x40020400
+    numberOfChannels: 8
+    [0-7] -> nvic@[56-60, 68-70]
+
+dmamux: Python.PythonPeripheral @ sysbus <0x40020800, +0x400>
+    size: 0x400
+    initable: true
+    script: '''
+if request.isInit:
+    dmamux_regs = {}
+    self.NoisyLog("[DMAMUX] Initialized (mock)")
+
+if request.isWrite:
+    dmamux_regs[request.offset] = request.value
+    # self.NoisyLog("[DMAMUX WRITE] offset=0x%x value=0x%x" % (request.offset, request.value))
+
+if request.isRead:
+    if request.offset in dmamux_regs:
+        request.value = dmamux_regs[request.offset]
+    else:
+        request.value = 0
+'''

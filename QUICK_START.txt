@@ -1,0 +1,46 @@
+╔════════════════════════════════════════════════════════════════════╗
+║  STM32G431CB Renode Emulation - БЫСТРЫЙ СТАРТ                     ║
+╚════════════════════════════════════════════════════════════════════╝
+
+🐳 DOCKER (рекомендуется - самый простой способ):
+   ./renode-docker.sh build
+   ./renode-docker.sh firmware
+   ./renode-docker.sh run
+
+💻 НАТИВНО (если нужна максимальная скорость):
+   ./install-renode-native.sh          # Автоматическая установка
+   cargo build --target thumbv7em-none-eabihf
+   renode renode/stm32g431_foc.resc
+
+🧪 ТЕСТЫ:
+   Docker:    ./renode-docker.sh test
+   Нативно:   ./renode/manual_test.sh all
+
+🐛 ОТЛАДКА С GDB:
+   Terminal 1: renode renode/stm32g431_foc.resc (или через Docker)
+   Terminal 2: arm-none-eabi-gdb target/.../firmware
+               (gdb) target remote :3333
+
+📚 ДОКУМЕНТАЦИЯ:
+   - DOCKER_SETUP.md         ← Docker (рекомендуется)
+   - LOCAL_TESTING.md        ← Нативная установка
+   - renode/CHEATSHEET.md    ← Команды Renode
+   - renode/README.md        ← Полная документация
+
+✨ ЗАВИСИМОСТИ АВТОМАТИЧЕСКИ:
+   Docker:    Всё внутри контейнера
+   Нативно:   install-renode-native.sh установит всё
+
+⚡ ПРЕИМУЩЕСТВА DOCKER:
+   ✅ Не засоряет систему
+   ✅ Работает одинаково везде
+   ✅ Не нужны права sudo после setup
+   ✅ Легко переключаться между проектами
+
+💡 ПРЕИМУЩЕСТВА НАТИВНО:
+   ✅ Чуть быстрее (~5%)
+   ✅ GUI Renode без X11 forwarding
+   ✅ Нет Docker overhead
+
+Создано: 2025-10-03
+Проект: CLN17 v2.0 Joint Firmware (STM32G431CB @ 170 MHz)

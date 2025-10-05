@@ -1,8 +1,7 @@
 use embassy_stm32::peripherals::RCC;
 use embassy_stm32::rcc::{
-    self, AHBPrescaler, APBPrescaler, Clocks, Config as RccConfig, Pll, PllPreDiv, PllRDiv, PllSource, Sysclk,
+    self, AHBPrescaler, APBPrescaler, Config as RccConfig, Pll, PllPreDiv, PllRDiv, PllSource, Sysclk,
 };
-use embassy_stm32::time::Hertz;
 
 use crate::firmware::config::SYSCLK_HZ;
 

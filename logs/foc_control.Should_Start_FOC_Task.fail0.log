@@ -1,0 +1,12 @@
+09:05:53.1057 [INFO] System bus created.
+09:05:53.6677 [INFO] sysbus: Loaded SVD: /tmp/renode-2799/d833b702-a177-48ec-b005-95c3ce1b5c9f.tmp. Name: STM32F40x. Description: STM32F40x.
+09:05:53.6837 [INFO] sysbus: Loading segment of 180 bytes length at 0x10000.
+09:05:53.6838 [WARNING] sysbus: Tried to access bytes at non-existing peripheral in range <0x00010000, 0x000100B3>.
+09:05:53.6839 [INFO] sysbus: Loading segment of 2 bytes length at 0x20000000.
+09:05:53.6963 [INFO] cpu: Guessing VectorTableOffset value to be 0x20000000.
+09:05:53.6965 [ERROR] cpu: PC does not lay in memory or PC and SP are equal to zero. CPU was halted.
+09:05:53.6965 [INFO] cpu: Setting initial values: PC = 0x0, SP = 0x0.
+09:05:53.6965 [WARNING] cpu: Patching PC 0x0 for Thumb mode.
+09:05:53.6968 [INFO] machine-0: Machine started.
+09:05:54.0939 [INFO] machine-0: Machine paused.
+09:05:54.3017 [INFO] machine-0: Machine resumed.

@@ -24,7 +24,7 @@ impl<'d> PhasePwm<'d> {
     /// # Arguments
     /// * `p` - Peripherals struct from embassy_stm32::init()
     /// * `freq` - PWM frequency
-    pub fn new(mut p: Peripherals, freq: Hertz) -> Self {
+    pub fn new(p: Peripherals, freq: Hertz) -> Self {
         // Configure PWM pins: TIM1 CH1/CH2/CH3 with complementary outputs
         let ch1 = PwmPin::new(p.PA8, OutputType::PushPull);
         let ch1n = ComplementaryPwmPin::new(p.PA7, OutputType::PushPull);

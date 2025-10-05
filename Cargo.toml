@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cortex-m = { version = "0.7.6", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.5", features = ["device"] }
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
 embassy-executor = { version = "0.9.1", features = ["arch-cortex-m", "executor-thread", "defmt"] }
-embassy-stm32 = { version = "0.4.0", features = ["stm32g431cb", "memory-x", "time"] }
-embassy-time = "0.5.0"
+embassy-stm32 = { version = "0.4.0", features = ["stm32g431cb", "memory-x", "time-driver-any", "unstable-pac", "exti"] }
+embassy-sync = { version = "0.7.0", features = ["defmt"] }
+embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
 embedded-alloc = "0.6.0"
 embedded-can = { version = "0.4.1", default-features = false }
 fdcan = { version = "0.2.1", features = ["fdcan_g0_g4_l5"] }
@@ -19,5 +21,9 @@ heapless = { version = "0.9.1", default-features = false, features = ["defmt"] }
 irpc = { version = "0.1.0", path = "../iRPC", default-features = false, features = ["joint_api", "stm32g4"] }
 libm = "0.2"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
-stm32g4 = { version = "0.16.0", default-features = false, features = ["stm32g431", "rt"] }
+
+[profile.release]
+opt-level = "z"  # Optimize for size
+lto = true       # Link-time optimization
+debug = 2        # Keep debug info for Renode
 

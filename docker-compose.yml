@@ -1,0 +1,61 @@
+# Docker Compose v2 (version field obsolete)
+
+services:
+  # Основной контейнер для разработки
+  renode:
+    build:
+      context: .
+      dockerfile: Dockerfile.renode
+    image: joint-firmware-renode:latest
+    container_name: stm32-renode
+    volumes:
+      # Монтируем проект
+      - .:/workspace
+      # Монтируем iRPC (локальная зависимость)
+      - ../iRPC:/iRPC:ro
+      # Кэш Cargo для быстрой сборки
+      - cargo-cache:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - target-cache:/workspace/target
+      # X11 forwarding для GUI (Linux host)
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    # Порты для GDB debugging
+    ports:
+      - "3333:3333" # GDB server
+      - "5900:5900" # VNC (опционально)
+    # X11 forwarding для GUI (Linux host)
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+    network_mode: host
+    privileged: false
+
+  # Контейнер только для тестов (headless)
+  renode-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.renode
+    image: joint-firmware-renode:latest
+    container_name: stm32-renode-test
+    volumes:
+      - .:/workspace
+      # Монтируем iRPC (локальная зависимость)
+      - ../iRPC:/iRPC:ro
+      - cargo-cache:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    command: >
+      bash -c "
+        cargo build --target thumbv7em-none-eabihf &&
+        renode-test renode/tests/*.robot
+      "
+
+volumes:
+  cargo-cache:
+  cargo-git:
+  target-cache:
+
+

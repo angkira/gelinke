@@ -6,7 +6,7 @@ use crate::firmware::drivers::adc::CurrentSensors;
 use crate::firmware::drivers::pwm::PhasePwm;
 use crate::firmware::drivers::sensors::AngleSensor;
 use crate::firmware::hardware::cordic::CordicEngine;
-use crate::firmware::hardware::fmac::{DualPiController, PiConfig};
+use crate::firmware::hardware::fmac::DualPiController;
 
 /// FOC control loop frequency in Hz.
 pub const FOC_LOOP_FREQ_HZ: u32 = 10_000;

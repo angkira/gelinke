@@ -1,0 +1,83 @@
+################################################################################
+# STM32G431CB FOC Motor Controller - Renode Script
+# Embassy Async + iRPC Protocol
+################################################################################
+
+using sysbus
+
+# Create machine
+mach create "stm32g431_foc"
+
+# Load platform description
+machine LoadPlatformDescription @renode/stm32g431cb.repl
+
+# Show this script name
+showAnalyzer usart1
+
+# Enable debug logging
+logLevel -1 sysbus.fdcan1
+logLevel -1 cpu
+
+# Configure RTT for defmt logging
+machine StartGdbServer 3333
+
+# Set quantum for deterministic timing
+quantum 100
+
+# Load firmware ELF
+sysbus LoadELF @target/thumbv7em-none-eabihf/debug/joint_firmware
+
+macro reset
+"""
+    sysbus LoadELF @target/thumbv7em-none-eabihf/debug/joint_firmware
+"""
+runMacro $reset
+
+################################################################################
+# Motor Simulation Setup
+################################################################################
+
+# Simulate motor behavior: encoder tracks PWM commands
+# In real FOC: PWM -> Motor -> Encoder feedback
+# Here: PWM values -> simulated position update
+
+# Connect CAN bus for multi-device testing
+emulation CreateCANHub "motorBus"
+connector Connect sysbus.fdcan1 motorBus
+
+################################################################################
+# Startup Messages
+################################################################################
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════════════╗"
+echo "║ STM32G431CB FOC Motor Controller - Renode Emulation                  ║"
+echo "╟───────────────────────────────────────────────────────────────────────╢"
+echo "║ Target:      STM32G431CB @ 170 MHz                                   ║"
+echo "║ Framework:   Embassy Async Runtime                                   ║"
+echo "║ Protocol:    iRPC over CAN-FD                                        ║"
+echo "║ FOC Rate:    10 kHz control loop                                     ║"
+echo "║ PWM Freq:    20 kHz (TIM1)                                           ║"
+echo "╟───────────────────────────────────────────────────────────────────────╢"
+echo "║ Peripherals Emulated:                                                ║"
+echo "║  ✓ TIM1    - 3-phase complementary PWM                              ║"
+echo "║  ✓ ADC1    - Phase current sensors (with DMA)                       ║"
+echo "║  ✓ SPI1    - TLE5012B magnetic encoder                              ║"
+echo "║  ✓ FDCAN1  - CAN-FD communication                                   ║"
+echo "║  ✓ CORDIC  - Park/Clarke transforms                                 ║"
+echo "║  ✓ FMAC    - PI controller acceleration                             ║"
+echo "║  ✓ USART1  - Debug telemetry                                        ║"
+echo "╟───────────────────────────────────────────────────────────────────────╢"
+echo "║ Commands:                                                            ║"
+echo "║  start              - Start emulation                                ║"
+echo "║  pause              - Pause emulation                                ║"
+echo "║  sysbus.fdcan1 Log  - Show CAN traffic                              ║"
+echo "║  sysbus.tim1 Log    - Show PWM updates                              ║"
+echo "║  cpu PC             - Show program counter                           ║"
+echo "║  quit               - Exit Renode                                    ║"
+echo "╚═══════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Start emulation
+start
+

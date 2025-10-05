@@ -1,5 +1,4 @@
 use embassy_stm32::peripherals::USB;
-use embassy_stm32::usb::Driver;
 use embassy_stm32::{bind_interrupts, Peripherals};
 
 bind_interrupts!(struct Irqs {
