@@ -7,4 +7,5 @@ pub mod irpc_integration;
 pub mod startup;
 pub mod system;
 pub mod tasks;
+pub mod telemetry;
 pub mod uart_log;
