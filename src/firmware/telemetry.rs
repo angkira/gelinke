@@ -31,26 +31,11 @@ impl<T: Copy + Default, const N: usize> RingBuffer<T, N> {
             self.count += 1;
         }
     }
-
-    fn average(&self) -> T
-    where
-        T: core::ops::Add<Output = T> + core::ops::Div<usize, Output = T>,
-    {
-        if self.count == 0 {
-            return T::default();
-        }
-        
-        let sum = self.data[..self.count]
-            .iter()
-            .copied()
-            .fold(T::default(), |acc, x| acc + x);
-        
-        sum / self.count
-    }
 }
 
-impl RingBuffer<I16F16, 10> {
-    fn average_fixed(&self) -> I16F16 {
+// Specialized implementation for I16F16 with any size
+impl<const N: usize> RingBuffer<I16F16, N> {
+    fn average(&self) -> I16F16 {
         if self.count == 0 {
             return I16F16::ZERO;
         }
@@ -201,8 +186,8 @@ impl TelemetryCollector {
             }
             TelemetryMode::OnChange => {
                 // Check if values changed significantly
-                let pos = self.position_samples.average_fixed().to_num::<f32>();
-                let vel = self.velocity_samples.average_fixed().to_num::<f32>();
+                let pos = self.position_samples.average().to_num::<f32>();
+                let vel = self.velocity_samples.average().to_num::<f32>();
                 
                 let pos_changed = (pos - self.last_position).abs() > self.config.change_threshold;
                 let vel_changed = (vel - self.last_velocity).abs() > self.config.change_threshold;
@@ -232,10 +217,10 @@ impl TelemetryCollector {
         warnings: u16,
     ) -> TelemetryStream {
         // Average ring buffer samples
-        let position = self.position_samples.average_fixed();
-        let velocity = self.velocity_samples.average_fixed();
-        let current_d = self.current_d_samples.average_fixed();
-        let current_q = self.current_q_samples.average_fixed();
+        let position = self.position_samples.average();
+        let velocity = self.velocity_samples.average();
+        let current_d = self.current_d_samples.average();
+        let current_q = self.current_q_samples.average();
         
         // Calculate acceleration (dv/dt)
         let dt_us = current_time_us.saturating_sub(self.prev_time_us);
@@ -347,7 +332,7 @@ mod tests {
         buffer.push(I16F16::from_num(2.0));
         buffer.push(I16F16::from_num(3.0));
         
-        let avg = buffer.average_fixed();
+        let avg = buffer.average();
         assert!((avg.to_num::<f32>() - 2.0).abs() < 0.01);
     }
 
