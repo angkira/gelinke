@@ -190,14 +190,21 @@ Tests for **iRPC v2.0 Phase 3 - Adaptive Control:**
 
 ## 🚀 Running Tests
 
-### Quick Unit Tests
+### Quick Unit Tests (Host)
 
 ```bash
-# Run fast validation
+# Run fast validation (no Docker needed)
 ./run_quick_tests.sh
 
 # Or manually
 robot --outputdir target/test-results renode/tests/simple_unit_tests.robot
+```
+
+### Docker + Unit Tests
+
+```bash
+# Build and run unit tests
+./run_docker_tests.sh
 ```
 
 **Output:**
@@ -220,19 +227,19 @@ Test Code Statistics ................ | PASS |
 
 ---
 
-### Full Integration Tests (Requires Renode)
+### Full Integration Tests (Docker + Renode)
 
 ```bash
-# Build firmware
-cargo build --release --features renode-mock
+# Build firmware in container
+docker compose run --rm renode bash -c "cargo build --release --features renode-mock"
 
-# Run Renode tests
-renode-test renode/tests/motion_planning.robot
-renode-test renode/tests/telemetry_streaming.robot
-renode-test renode/tests/adaptive_control.robot
+# Run E2E tests in Renode container
+docker compose run --rm renode bash -c "renode-test renode/tests/motion_planning.robot"
+docker compose run --rm renode bash -c "renode-test renode/tests/telemetry_streaming.robot"
+docker compose run --rm renode bash -c "renode-test renode/tests/adaptive_control.robot"
 ```
 
-**Status:** Infrastructure ready, awaiting Renode setup.
+**Status:** Infrastructure ready, Renode in Docker container.
 
 ---
 
@@ -265,19 +272,20 @@ renode-test renode/tests/adaptive_control.robot
 
 ### To Enable Full Integration Tests:
 
-1. **Install Renode** (if not already)
+1. **Build Docker Image** (if not already built)
    ```bash
-   # Ubuntu/Debian
-   wget https://github.com/renode/renode/releases/download/v1.14.0/renode_1.14.0_amd64.deb
-   sudo dpkg -i renode_1.14.0_amd64.deb
-   
-   # Or use Docker
-   docker pull antmicro/renode
+   docker compose build renode
    ```
 
-2. **Run Integration Tests**
+2. **Run Integration Tests in Container**
    ```bash
-   ./run_tests.sh
+   # All-in-one
+   ./run_docker_tests.sh
+   
+   # Or specific suites
+   docker compose run --rm renode bash -c "renode-test renode/tests/motion_planning.robot"
+   docker compose run --rm renode bash -c "renode-test renode/tests/telemetry_streaming.robot"
+   docker compose run --rm renode bash -c "renode-test renode/tests/adaptive_control.robot"
    ```
 
 3. **Optional: Real Hardware Testing**
