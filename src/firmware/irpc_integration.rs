@@ -2,13 +2,14 @@
 ///
 /// Bridges iRPC protocol with FOC control system.
 
-use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload, SetTargetPayloadV2, MotionProfile};
+use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload, SetTargetPayloadV2, MotionProfile, ConfigureTelemetryPayload};
 use irpc::joint::Joint;
 use fixed::types::I16F16;
 
 use crate::firmware::control::position::PositionController;
 use crate::firmware::control::velocity::VelocityController;
 use crate::firmware::control::motion_planner::{MotionPlanner, MotionConfig, Trajectory};
+use crate::firmware::telemetry::{TelemetryCollector, TelemetrySample, TelemetryConfig};
 
 /// Bridge between iRPC Joint and FOC control system.
 ///
@@ -30,6 +31,8 @@ pub struct JointFocBridge {
     current_position: I16F16,
     /// Current control mode
     mode: ControlMode,
+    /// Telemetry collector
+    telemetry: TelemetryCollector,
 }
 
 /// Control mode for the joint.
@@ -55,6 +58,7 @@ impl JointFocBridge {
             trajectory_start_time: 0,
             current_position: I16F16::ZERO,
             mode: ControlMode::Position,
+            telemetry: TelemetryCollector::new(),
         }
     }
 
@@ -70,7 +74,7 @@ impl JointFocBridge {
         // Let iRPC handle lifecycle transitions
         let response = self.joint.handle_message(msg)?;
 
-        // Handle SetTarget commands when Active
+        // Handle commands when Active
         if self.state() == LifecycleState::Active {
             match &msg.payload {
                 Payload::SetTarget(target) => {
@@ -78,6 +82,21 @@ impl JointFocBridge {
                 }
                 Payload::SetTargetV2(target) => {
                     self.apply_target_v2(target);
+                }
+                Payload::ConfigureTelemetry(config) => {
+                    self.configure_telemetry(config);
+                }
+                Payload::RequestTelemetry => {
+                    // Return telemetry immediately
+                    let telemetry = self.telemetry.request_telemetry(0, 25.0, 0);
+                    return Some(Message {
+                        header: irpc::protocol::Header {
+                            source_id: msg.header.target_id,
+                            target_id: msg.header.source_id,
+                            msg_id: msg.header.msg_id,
+                        },
+                        payload: Payload::TelemetryStream(telemetry),
+                    });
                 }
                 _ => {}
             }
@@ -238,6 +257,57 @@ impl JointFocBridge {
     /// Get motion planner reference.
     pub fn motion_planner(&mut self) -> &mut MotionPlanner {
         &mut self.motion_planner
+    }
+
+    /// Configure telemetry streaming
+    fn configure_telemetry(&mut self, config: &ConfigureTelemetryPayload) {
+        let telemetry_config = TelemetryConfig {
+            mode: config.mode,
+            rate_hz: if config.rate_hz > 0 { config.rate_hz } else { 100 },
+            change_threshold: if config.change_threshold > 0.0 { config.change_threshold } else { 1.0 },
+        };
+        self.telemetry.configure(telemetry_config);
+    }
+
+    /// Collect telemetry sample (call from FOC loop)
+    ///
+    /// This should be extremely fast (< 5 µs).
+    #[inline]
+    pub fn collect_telemetry(
+        &mut self,
+        position: I16F16,
+        velocity: I16F16,
+        current_d: I16F16,
+        current_q: I16F16,
+        current_time_us: u64,
+    ) {
+        let sample = TelemetrySample {
+            position,
+            velocity,
+            current_d,
+            current_q,
+            voltage_d: I16F16::ZERO,  // TODO: get from FOC
+            voltage_q: I16F16::ZERO,  // TODO: get from FOC
+        };
+        
+        self.telemetry.collect_sample(sample, current_time_us);
+        self.telemetry.set_trajectory_active(self.current_trajectory.is_some());
+    }
+
+    /// Check if telemetry should be sent and generate it
+    ///
+    /// Returns Some(telemetry) if it's time to send.
+    pub fn check_and_generate_telemetry(&mut self, current_time_us: u64) -> Option<irpc::protocol::TelemetryStream> {
+        if self.telemetry.should_send(current_time_us) {
+            Some(self.telemetry.generate_telemetry(current_time_us, 25.0, 0))
+        } else {
+            None
+        }
+    }
+
+    /// Get telemetry collector reference
+    pub fn telemetry(&mut self) -> &mut TelemetryCollector {
+        &mut self.telemetry
     }
 }
 
