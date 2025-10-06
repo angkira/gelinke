@@ -4,9 +4,11 @@ Documentation     Telemetry Streaming Tests - iRPC v2.0 Phase 2
 ...               Tests for comprehensive telemetry streaming with multiple modes.
 ...               Validates data collection, streaming rates, and bandwidth optimization.
 
-Resource          test_helpers.robot
 Library           String
 Library           Collections
+
+# Import Renode keywords from container
+Resource          /opt/renode/tests/renode-keywords.robot
 
 Suite Setup       Setup Telemetry Suite
 Suite Teardown    Teardown Telemetry Suite

@@ -4,9 +4,11 @@ Documentation     Motion Planning Tests - iRPC v2.0 Phase 1
 ...               Tests for trapezoidal and S-curve motion profiles with trajectory generation.
 ...               Validates motion planning algorithms, trajectory interpolation, and FOC integration.
 
-Resource          test_helpers.robot
 Library           String
 Library           Collections
+
+# Import Renode keywords from container
+Resource          /opt/renode/tests/renode-keywords.robot
 
 Suite Setup       Setup Motion Planning Suite
 Suite Teardown    Teardown Motion Planning Suite

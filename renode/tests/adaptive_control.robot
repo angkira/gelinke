@@ -4,9 +4,11 @@ Documentation     Adaptive Control Tests - iRPC v2.0 Phase 3
 ...               Tests for coolStep, dcStep, and stallGuard adaptive control features.
 ...               Validates load estimation, power savings, stall detection, and predictive diagnostics.
 
-Resource          test_helpers.robot
 Library           String
 Library           Collections
+
+# Import Renode keywords from container
+Resource          /opt/renode/tests/renode-keywords.robot
 
 Suite Setup       Setup Adaptive Control Suite
 Suite Teardown    Teardown Adaptive Control Suite
