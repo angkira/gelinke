@@ -2,7 +2,7 @@
 ///
 /// Bridges iRPC protocol with FOC control system.
 
-use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload, SetTargetPayloadV2, MotionProfile, ConfigureTelemetryPayload};
+use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload, SetTargetPayloadV2, MotionProfile, ConfigureTelemetryPayload, ConfigureAdaptivePayload, AdaptiveStatusPayload, StallStatus as IrpcStallStatus};
 use irpc::joint::Joint;
 use fixed::types::I16F16;
 
@@ -10,6 +10,10 @@ use crate::firmware::control::position::PositionController;
 use crate::firmware::control::velocity::VelocityController;
 use crate::firmware::control::motion_planner::{MotionPlanner, MotionConfig, Trajectory};
 use crate::firmware::telemetry::{TelemetryCollector, TelemetrySample, TelemetryConfig};
+use crate::firmware::control::adaptive::{
+    AdaptiveController, LoadEstimatorConfig, CoolStepConfig, DcStepConfig, StallGuardConfig,
+    StallStatus as FirmwareStallStatus,
+};
 
 /// Bridge between iRPC Joint and FOC control system.
 ///
@@ -33,6 +37,8 @@ pub struct JointFocBridge {
     mode: ControlMode,
     /// Telemetry collector
     telemetry: TelemetryCollector,
+    /// Adaptive controller (Phase 3)
+    adaptive: AdaptiveController,
 }
 
 /// Control mode for the joint.
@@ -59,6 +65,7 @@ impl JointFocBridge {
             current_position: I16F16::ZERO,
             mode: ControlMode::Position,
             telemetry: TelemetryCollector::new(),
+            adaptive: AdaptiveController::default(),
         }
     }
 
@@ -96,6 +103,21 @@ impl JointFocBridge {
                             msg_id: msg.header.msg_id,
                         },
                         payload: Payload::TelemetryStream(telemetry),
+                    });
+                }
+                Payload::ConfigureAdaptive(config) => {
+                    self.configure_adaptive(config);
+                }
+                Payload::RequestAdaptiveStatus => {
+                    // Return adaptive status immediately
+                    let status = self.get_adaptive_status();
+                    return Some(Message {
+                        header: irpc::protocol::Header {
+                            source_id: msg.header.target_id,
+                            target_id: msg.header.source_id,
+                            msg_id: msg.header.msg_id,
+                        },
+                        payload: Payload::AdaptiveStatus(status),
                     });
                 }
                 _ => {}
@@ -308,6 +330,92 @@ impl JointFocBridge {
     /// Get telemetry collector reference
     pub fn telemetry(&mut self) -> &mut TelemetryCollector {
         &mut self.telemetry
+    }
+
+    /// Configure adaptive control features (Phase 3)
+    fn configure_adaptive(&mut self, config: &ConfigureAdaptivePayload) {
+        // Configure coolStep
+        if config.coolstep_enable {
+            let mut coolstep_config = self.adaptive.coolstep.config();
+            coolstep_config.min_current_percent = config.coolstep_min_current;
+            coolstep_config.reduction_threshold = config.coolstep_threshold;
+            self.adaptive.coolstep.set_config(coolstep_config);
+            self.adaptive.coolstep.enable();
+        } else {
+            self.adaptive.coolstep.disable();
+        }
+
+        // Configure dcStep
+        if config.dcstep_enable {
+            let mut dcstep_config = self.adaptive.dcstep.config();
+            dcstep_config.load_threshold = config.dcstep_threshold;
+            dcstep_config.max_derating = config.dcstep_max_derating;
+            self.adaptive.dcstep.set_config(dcstep_config);
+            self.adaptive.dcstep.enable();
+        } else {
+            self.adaptive.dcstep.disable();
+        }
+
+        // Configure stallGuard
+        if config.stallguard_enable {
+            let mut stallguard_config = self.adaptive.stallguard.config();
+            stallguard_config.current_threshold = I16F16::from_num(config.stallguard_current_threshold);
+            // Convert deg/s to rad/s
+            let vel_rad_s = config.stallguard_velocity_threshold * core::f32::consts::PI / 180.0;
+            stallguard_config.velocity_threshold = I16F16::from_num(vel_rad_s);
+            self.adaptive.stallguard.set_config(stallguard_config);
+            self.adaptive.stallguard.enable();
+        } else {
+            self.adaptive.stallguard.disable();
+        }
+    }
+
+    /// Get adaptive control status (Phase 3)
+    fn get_adaptive_status(&self) -> AdaptiveStatusPayload {
+        // Convert firmware StallStatus to iRPC StallStatus
+        let stall_status = match self.adaptive.stallguard.status() {
+            FirmwareStallStatus::Normal => IrpcStallStatus::Normal,
+            FirmwareStallStatus::Warning => IrpcStallStatus::Warning,
+            FirmwareStallStatus::Stalled => IrpcStallStatus::Stalled,
+        };
+
+        AdaptiveStatusPayload {
+            load_percent: self.adaptive.load(),
+            
+            current_scale: self.adaptive.coolstep.current_scale(),
+            coolstep_enabled: self.adaptive.coolstep.is_enabled(),
+            power_savings_percent: self.adaptive.coolstep.get_savings(),
+            energy_saved_wh: self.adaptive.coolstep.total_savings_wh(),
+            
+            velocity_scale: self.adaptive.dcstep.velocity_scale(),
+            dcstep_enabled: self.adaptive.dcstep.is_enabled(),
+            dcstep_derating: self.adaptive.dcstep.is_derating(),
+            
+            stall_status,
+            stallguard_enabled: self.adaptive.stallguard.is_enabled(),
+            stall_confidence: self.adaptive.stallguard.confidence(),
+        }
+    }
+
+    /// Update adaptive control (call at FOC loop rate or lower)
+    ///
+    /// Returns (current_scale, velocity_scale, stall_status).
+    /// Performance: < 50 µs
+    pub fn update_adaptive(
+        &mut self,
+        current_q: I16F16,
+        velocity: I16F16,
+        current_time_us: u64,
+    ) -> (f32, f32, FirmwareStallStatus) {
+        let (current_scale, velocity_scale, stall_status) = 
+            self.adaptive.update(current_q, velocity, current_time_us);
+        
+        (current_scale, velocity_scale, stall_status)
+    }
+
+    /// Get adaptive controller (for tests)
+    pub fn adaptive(&self) -> &AdaptiveController {
+        &self.adaptive
     }
 }
 
