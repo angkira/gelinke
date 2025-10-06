@@ -1,8 +1,8 @@
-# 🚀 iRPC v2.0 Phase 2 - Streaming Telemetry
+# 🚀 iRPC v2.0 Phase 3 - Adaptive Control
 
-**Date:** 2025-10-06 (Updated)  
-**Status:** Phase 1 ✅ COMPLETE | Phase 2 Ready to Start  
-**Branch:** `main` (Phase 1 merged)
+**Date:** 2025-10-06 (Updated after Phase 1+2)  
+**Status:** Phase 1 ✅ COMPLETE | Phase 2 ✅ COMPLETE | Phase 3 Ready to Start  
+**Branch:** `main` (Phase 1+2 merged)
 
 ---
 
@@ -11,47 +11,58 @@
 ```
 ✅ Phase 1 COMPLETE - Motion Profiling (100%)
    - Motion planner with trapezoidal & S-curve (704 lines)
-   - SetTargetV2 protocol (42 bytes, CAN-FD compatible)
-   - FOC integration (10 kHz real-time)
+   - SetTargetV2 protocol (42 bytes)
+   - FOC integration (10 kHz, 200 µs planning)
    - 36 tests passing (14 unit + 22 integration)
-   - 1,400+ lines documentation
    
-✅ Build Status: PASSING (0 warnings)
-✅ Performance: 5x better than targets
-✅ Backward Compatibility: 100% maintained
+✅ Phase 2 COMPLETE - Streaming Telemetry (100%)
+   - TelemetryCollector (450 lines)
+   - 5 streaming modes (1 kHz max, 10x adaptive)
+   - TelemetryStream protocol (64 bytes)
+   - 28 tests passing (6 unit + 22 integration)
+
+✅ Combined Status
+   - 3,413 lines production code
+   - 64 tests (100% passing)
+   - 2,740+ lines documentation
+   - 0 compiler warnings
+   - All performance targets exceeded
 ```
 
-**Phase 1 Achievements:**
-- 📊 2,313 lines of production code
+**Phase 1+2 Achievements:**
+- 📊 3,413 lines of production code
 - 🎯 60% vibration reduction (S-curve)
-- ⚡ 200 µs motion planning (target: < 1 ms)
-- 🔧 50% mechanical wear reduction
-- 📚 Complete protocol specification
+- ⚡ 5x better than motion planning target
+- 📡 1 kHz telemetry streaming (11.8% CAN bandwidth)
+- 🧠 10x adaptive bandwidth reduction
+- 📚 Complete documentation (2,740+ lines)
 
 ---
 
-## 🎯 Current Task: Phase 2 - Streaming Telemetry
+## 🎯 Current Task: Phase 3 - Adaptive Control
 
 ### **Goal**
 
-Implement high-frequency telemetry streaming for real-time monitoring and diagnostics.
+Implement intelligent adaptive features inspired by TMC5160T for automatic optimization and fault tolerance.
 
 **Key Features:**
-1. 🔄 **High-frequency streaming** - 1 kHz position/velocity feedback
-2. 📊 **Performance metrics** - FOC loop timing, CPU usage
-3. 🔍 **Diagnostic data** - Current, temperature, load estimation
-4. 📈 **Configurable modes** - On-demand, periodic, streaming, adaptive
+1. 🎛️ **Auto-tuning** - Self-calibrating PI controllers (zero manual tuning)
+2. ⚡ **coolStep** - Load-adaptive current reduction (50-75% power savings)
+3. 🚦 **dcStep** - Load-adaptive velocity derating (no stalls)
+4. 🔍 **stallGuard** - Sensorless stall detection
+5. 📊 **Predictive diagnostics** - Fault prediction & health scoring
 
-**Expected Duration:** 2 weeks (80 hours)
+**Expected Duration:** 3 weeks (120 hours)
 
 ### **Deliverables**
 
-- Enhanced telemetry payloads with rich data
-- Streaming mode support (1 kHz)
-- Bandwidth optimization for CAN-FD
-- Telemetry configuration commands
-- 20+ new tests for streaming
-- Updated protocol documentation
+- Auto-tuning algorithms for PI controllers
+- Load estimation & adaptive current control
+- Stall detection without extra sensors
+- Predictive maintenance system
+- Health scoring (0-100%)
+- 25+ new tests for adaptive features
+- Updated documentation
 
 ---
 
@@ -61,503 +72,598 @@ Implement high-frequency telemetry streaming for real-time monitoring and diagno
 joint_firmware/
 ├── src/
 │   └── firmware/
-│       ├── tasks/
-│       │   ├── can_comm.rs        ← TO ENHANCE (streaming)
-│       │   └── foc.rs              ← ADD telemetry collection
 │       ├── control/
 │       │   ├── motion_planner.rs   ✅ COMPLETE (Phase 1)
-│       │   └── observer.rs         ← TO USE (load estimation)
-│       └── irpc_integration.rs    ← ADD telemetry handling
+│       │   ├── position.rs         ← TO ENHANCE (auto-tune)
+│       │   ├── velocity.rs         ← TO ENHANCE (auto-tune)
+│       │   └── adaptive.rs         ← TO CREATE (coolStep, dcStep)
+│       ├── diagnostics/
+│       │   ├── mod.rs               ← TO CREATE
+│       │   ├── health.rs            ← TO CREATE (health scoring)
+│       │   └── predictor.rs         ← TO CREATE (fault prediction)
+│       ├── telemetry.rs             ✅ COMPLETE (Phase 2)
+│       └── irpc_integration.rs     ← TO ENHANCE (adaptive commands)
 │
 ├── renode/
 │   ├── tests/
-│   │   ├── motion_planning.robot   ✅ COMPLETE (22 tests)
-│   │   └── telemetry_streaming.robot  ← TO CREATE
-│   └── peripherals/               ← TO ENHANCE (telemetry mock)
+│   │   ├── motion_planning.robot     ✅ COMPLETE (22 tests)
+│   │   ├── telemetry_streaming.robot ✅ COMPLETE (22 tests)
+│   │   └── adaptive_control.robot    ← TO CREATE (25+ tests)
 │
 ├── docs/
-│   ├── IRPC_V2_PROTOCOL.md        ✅ Phase 1 complete
-│   └── IRPC_V2_TELEMETRY.md       ← TO CREATE
+│   ├── IRPC_V2_PROTOCOL.md          ✅ Phase 1+2 complete
+│   └── IRPC_V2_ADAPTIVE.md          ← TO CREATE
 │
-├── PHASE_1_COMPLETE.md            ✅ Achievement summary
-└── SESSION_SUMMARY.md             ✅ Session log
+├── PHASE_1_COMPLETE.md              ✅ Achievement summary
+├── PHASE_2_COMPLETE.md              ✅ Achievement summary
+└── SESSION_SUMMARY_PHASES_1_2.md    ✅ Combined summary
 ```
 
-### **Key Files to Modify**
+### **Key Files to Create/Modify**
 
 1. **iRPC Library** (`../../iRPC/` - sibling workspace):
-   - `src/protocol.rs` - Add telemetry payloads
-   - `src/joint.rs` - Add telemetry state management
+   - `src/protocol.rs` - Add adaptive control payloads
+   - `src/joint.rs` - Add adaptive state management
 
 2. **Firmware**:
-   - `src/firmware/irpc_integration.rs` - Telemetry generation
-   - `src/firmware/tasks/foc.rs` - Data collection in FOC loop
-   - `src/firmware/tasks/can_comm.rs` - Streaming logic
+   - `src/firmware/control/adaptive.rs` - NEW FILE (coolStep, dcStep)
+   - `src/firmware/diagnostics/mod.rs` - NEW MODULE
+   - `src/firmware/diagnostics/health.rs` - NEW FILE
+   - `src/firmware/diagnostics/predictor.rs` - NEW FILE
+   - `src/firmware/control/position.rs` - Add auto-tuning
+   - `src/firmware/control/velocity.rs` - Add auto-tuning
 
 3. **Tests**:
-   - `renode/tests/telemetry_streaming.robot` - NEW FILE (20+ tests)
-   - Update existing tests for telemetry verification
+   - `renode/tests/adaptive_control.robot` - NEW FILE (25+ tests)
 
 ---
 
-## 🔧 Phase 2 Detailed Tasks
+## 🔧 Phase 3 Detailed Tasks
 
-### **Task 1: Enhanced Telemetry Payloads** (15 hours)
+### **Task 1: Auto-Tuning PI Controllers** (30 hours)
 
-**File:** `../../iRPC/src/protocol.rs`
-
-**What to add:**
-
-```rust
-/// Comprehensive telemetry stream (v2.0)
-pub struct TelemetryStream {
-    // Timestamp
-    pub timestamp_us: u64,              // Microseconds since boot
-    
-    // Motion state
-    pub position: f32,                  // Degrees
-    pub velocity: f32,                  // Degrees/second
-    pub acceleration: f32,              // Degrees/second² (calculated)
-    
-    // FOC state
-    pub current_d: f32,                 // D-axis current (A)
-    pub current_q: f32,                 // Q-axis current (A)
-    pub voltage_d: f32,                 // D-axis voltage (V)
-    pub voltage_q: f32,                 // Q-axis voltage (V)
-    
-    // Derived metrics
-    pub torque_estimate: f32,           // Newton-meters
-    pub power: f32,                     // Watts
-    pub load_percent: f32,              // 0-100%
-    
-    // Performance
-    pub foc_loop_time_us: u16,          // FOC loop execution time
-    pub temperature_c: f32,             // Temperature (Celsius)
-    
-    // Status flags
-    pub warnings: u16,                  // Warning flags
-    pub trajectory_active: bool,        // Following trajectory?
-}
-
-/// Telemetry configuration
-pub struct ConfigureTelemetryPayload {
-    pub mode: TelemetryMode,
-    pub rate_hz: u16,                   // Update rate (for Periodic)
-    pub change_threshold: f32,          // Threshold (for OnChange)
-}
-
-/// Telemetry modes
-pub enum TelemetryMode {
-    OnDemand,           // Send only on request
-    Periodic(u16),      // Send every N ms
-    Streaming,          // Continuous at max rate (1 kHz)
-    OnChange(f32),      // Send when value changes > threshold
-    Adaptive,           // Adjust rate based on motion activity
-}
-
-/// Add to Payload enum
-pub enum Payload {
-    // ... existing variants
-    
-    // Telemetry (v2.0)
-    TelemetryStream(TelemetryStream),
-    ConfigureTelemetry(ConfigureTelemetryPayload),
-    RequestTelemetry,                   // On-demand request
-}
-```
-
-**Size Analysis:**
-- TelemetryStream: ~60 bytes (fits in CAN-FD frame)
-- Configure: ~8 bytes
-- Efficient binary serialization (postcard)
-
-### **Task 2: Telemetry Collection** (20 hours)
-
-**File:** `src/firmware/tasks/foc.rs`
+**File:** `src/firmware/control/position.rs` + `velocity.rs`
 
 **What to implement:**
 
 ```rust
-pub struct TelemetryCollector {
-    // Accumulation buffers
-    position_samples: RingBuffer<I16F16, 10>,
-    velocity_samples: RingBuffer<I16F16, 10>,
-    current_d_samples: RingBuffer<I16F16, 10>,
-    current_q_samples: RingBuffer<I16F16, 10>,
-    
-    // Timing
-    last_sample_time_us: u64,
-    foc_loop_time_us: u16,
-    
-    // Configuration
-    mode: TelemetryMode,
-    rate_hz: u16,
+/// Auto-tuning state
+pub enum TuningState {
+    NotStarted,
+    Measuring,        // Collecting response data
+    Calculating,      // Computing optimal gains
+    Testing,          // Validating new gains
+    Complete(Gains),  // Tuning complete
+    Failed(String),   // Error occurred
 }
 
-impl TelemetryCollector {
-    /// Collect data in FOC loop (called at 10 kHz)
-    pub fn collect_sample(
-        &mut self,
-        position: I16F16,
-        velocity: I16F16,
-        currents: &Currents,
-        voltages: &Voltages,
-    );
+/// Auto-tuning algorithm (Ziegler-Nichols or Relay method)
+pub struct AutoTuner {
+    state: TuningState,
+    samples: Vec<(f32, f32)>,  // (time, error) pairs
+    ultimate_gain: f32,         // Ku from oscillation
+    ultimate_period: f32,       // Tu from oscillation
+}
+
+impl AutoTuner {
+    /// Start auto-tuning process
+    pub fn start_tuning(&mut self);
     
-    /// Check if telemetry should be sent
-    pub fn should_send(&self, current_time_us: u64) -> bool;
+    /// Update with measurement
+    pub fn update(&mut self, error: f32, dt: f32);
     
-    /// Generate telemetry payload
-    pub fn generate_telemetry(&self) -> TelemetryStream;
+    /// Calculate optimal gains using Ziegler-Nichols
+    pub fn calculate_gains(&self) -> Result<Gains, TuningError>;
+}
+
+/// Enhanced PI controller with auto-tuning
+impl PositionController {
+    pub fn start_auto_tune(&mut self);
+    pub fn is_tuning(&self) -> bool;
+    pub fn get_tuning_progress(&self) -> f32;  // 0.0 - 1.0
 }
 ```
 
-**Optimization:**
-- Use ring buffers for averaging (reduce noise)
-- Minimal overhead in FOC loop (< 5 µs)
-- Efficient fixed-point to float conversion
+**Algorithm: Relay Method**
+1. Apply relay (bang-bang) control
+2. Measure oscillation period and amplitude
+3. Calculate ultimate gain Ku and period Tu
+4. Use Ziegler-Nichols rules:
+   - Kp = 0.6 * Ku
+   - Ki = 1.2 * Ku / Tu
+   - Kd = 0.075 * Ku * Tu
 
-### **Task 3: Streaming Logic** (15 hours)
+**Tests:**
+- Auto-tune from poor initial gains
+- Convergence to optimal gains
+- Stability after tuning
+- Handle noisy measurements
 
-**File:** `src/firmware/tasks/can_comm.rs`
+### **Task 2: Load-Adaptive Current Control (coolStep)** (25 hours)
 
-**What to add:**
+**File:** `src/firmware/control/adaptive.rs` (NEW)
+
+**What to implement:**
 
 ```rust
-pub struct TelemetryStreamer {
-    collector: TelemetryCollector,
-    config: TelemetryConfig,
-    last_send_time_us: u64,
-    send_interval_us: u64,
-}
-
-impl TelemetryStreamer {
-    /// Process telemetry configuration command
-    pub fn configure(&mut self, config: &ConfigureTelemetryPayload);
+/// Load estimation from current measurements
+pub struct LoadEstimator {
+    // Moving average of Q-axis current
+    current_history: RingBuffer<I16F16, 50>,
     
-    /// Update and potentially send telemetry
-    pub async fn update(&mut self, can: &mut CanFd) {
-        if self.collector.should_send(current_time_us()) {
-            let telemetry = self.collector.generate_telemetry();
-            let msg = create_telemetry_message(telemetry);
-            can.send_message(&msg).await?;
-        }
-    }
+    // Motor parameters
+    rated_current: I16F16,
+    rated_torque: I16F16,
+}
+
+impl LoadEstimator {
+    /// Estimate current load percentage (0-100%)
+    pub fn estimate_load(&self, current_q: I16F16) -> f32;
+    
+    /// Predict if stall is imminent
+    pub fn predict_stall(&self) -> bool;
+}
+
+/// coolStep: Adaptive current reduction
+pub struct CoolStep {
+    load_estimator: LoadEstimator,
+    
+    // Configuration
+    min_current_percent: f32,  // Don't go below this (e.g., 30%)
+    adaptation_rate: f32,       // How fast to adapt
+    
+    // State
+    current_scale: f32,         // 0.0 - 1.0 multiplier
+}
+
+impl CoolStep {
+    /// Update and get current scaling factor
+    pub fn update(&mut self, current_q: I16F16, velocity: I16F16) -> f32;
+    
+    /// Get power savings percentage
+    pub fn get_savings(&self) -> f32;
 }
 ```
 
-**Modes Implementation:**
+**Algorithm:**
+1. Measure Q-axis current (torque-producing)
+2. Estimate load from current vs velocity
+3. Reduce current when load is low
+4. Increase current when load increases
+5. Maintain margin to prevent stalls
 
-1. **OnDemand** - Only when RequestTelemetry received
-2. **Periodic(rate)** - Timer-based sending
-3. **Streaming** - Maximum rate (1 kHz)
-4. **OnChange(threshold)** - When value changes significantly
-5. **Adaptive** - Fast during motion, slow when idle
+**Expected Savings:**
+- Idle/low load: 50-75% current reduction
+- Medium load: 20-40% reduction
+- High load: Minimal reduction (safety)
 
-### **Task 4: Bandwidth Optimization** (10 hours)
+### **Task 3: Load-Adaptive Velocity (dcStep)** (20 hours)
 
-**CAN-FD Bandwidth Analysis:**
+**File:** `src/firmware/control/adaptive.rs`
 
+**What to implement:**
+
+```rust
+/// dcStep: Adaptive velocity derating
+pub struct DcStep {
+    load_estimator: LoadEstimator,
+    
+    // Configuration
+    load_threshold: f32,        // Start derating at this load (%)
+    max_derating: f32,          // Maximum velocity reduction (%)
+    
+    // State
+    velocity_scale: f32,        // 0.0 - 1.0 multiplier
+}
+
+impl DcStep {
+    /// Update and get velocity scaling factor
+    pub fn update(&mut self, load: f32) -> f32;
+    
+    /// Check if derating is active
+    pub fn is_derating(&self) -> bool;
+}
 ```
-CAN-FD data rate: 5 Mbps
-Message overhead: ~20 bytes (header + CRC)
-Telemetry payload: 60 bytes
-Total per message: 80 bytes = 640 bits
 
-1 kHz rate: 640 kbps (12.8% of bandwidth)
-✅ Sustainable with room for commands
+**Algorithm:**
+1. Monitor load percentage
+2. If load > threshold, reduce max velocity
+3. Scale reduction proportional to excess load
+4. Prevents stalls by reducing speed under high load
+
+**Example:**
+- Load < 70%: Full velocity
+- Load 70-90%: Linear derating (100% → 80%)
+- Load > 90%: Minimum velocity (80%)
+
+### **Task 4: Stall Detection (stallGuard)** (15 hours)
+
+**File:** `src/firmware/control/adaptive.rs`
+
+**What to implement:**
+
+```rust
+/// stallGuard: Sensorless stall detection
+pub struct StallGuard {
+    // Thresholds
+    current_threshold: I16F16,   // Stall if current > this
+    velocity_threshold: I16F16,  // And velocity < this
+    duration_threshold: u32,     // For this many ms
+    
+    // State
+    stall_counter: u32,
+    stalled: bool,
+}
+
+impl StallGuard {
+    /// Update stall detection
+    pub fn update(&mut self, current_q: I16F16, velocity: I16F16) -> StallStatus;
+    
+    /// Check if currently stalled
+    pub fn is_stalled(&self) -> bool;
+    
+    /// Get stall detection confidence (0-100%)
+    pub fn confidence(&self) -> f32;
+}
+
+pub enum StallStatus {
+    Normal,
+    Warning,    // High load, might stall
+    Stalled,    // Definitely stalled
+}
 ```
 
-**Optimizations:**
-- Delta encoding for slow-changing values
-- Configurable field selection
-- Compression for logged data
-- Adaptive rate based on CAN load
+**Detection Logic:**
+- High current + low velocity = likely stalled
+- Track over time window (debounce)
+- Emit warning before full stall
+- Trigger recovery actions
 
-### **Task 5: Integration & Testing** (20 hours)
+### **Task 5: Predictive Diagnostics** (20 hours)
 
-**File:** `renode/tests/telemetry_streaming.robot`
+**File:** `src/firmware/diagnostics/health.rs` + `predictor.rs` (NEW)
+
+**What to implement:**
+
+```rust
+/// Health monitoring and scoring
+pub struct HealthMonitor {
+    // Historical data
+    temperature_trend: TrendAnalyzer,
+    current_trend: TrendAnalyzer,
+    error_count: RingBuffer<u16, 100>,
+    
+    // Thresholds
+    warning_thresholds: HealthThresholds,
+    critical_thresholds: HealthThresholds,
+}
+
+impl HealthMonitor {
+    /// Calculate overall health score (0-100%)
+    pub fn health_score(&self) -> f32;
+    
+    /// Predict time to failure (hours, if trending bad)
+    pub fn time_to_failure(&self) -> Option<f32>;
+    
+    /// Get active warnings
+    pub fn warnings(&self) -> Vec<HealthWarning>;
+}
+
+pub enum HealthWarning {
+    TemperatureTrend,      // Rising temperature
+    CurrentTrend,          // Increasing current (wear)
+    FrequentErrors,        // Error rate increasing
+    PerformanceDegradation,// Slower response
+}
+
+/// Trend analysis for predictive maintenance
+pub struct TrendAnalyzer {
+    samples: RingBuffer<(u64, f32), 1000>,  // (time, value)
+}
+
+impl TrendAnalyzer {
+    /// Calculate trend slope (rate of change)
+    pub fn slope(&self) -> f32;
+    
+    /// Predict future value
+    pub fn predict(&self, time_ahead_s: f32) -> f32;
+    
+    /// Check if trend is concerning
+    pub fn is_concerning(&self, threshold: f32) -> bool;
+}
+```
+
+**Health Score Calculation:**
+```
+health_score = 100 - Σ(penalties)
+
+Penalties:
+- Temperature > 60°C: -5 per degree
+- Current > 80% rated: -10 per 10%
+- Errors > 1/min: -10 per error/min
+- Tracking error > 5°: -5 per degree
+- Performance degradation: -10
+```
+
+### **Task 6: Integration & Testing** (30 hours)
+
+**File:** `renode/tests/adaptive_control.robot`
 
 **Tests to write:**
 
 ```robot
 *** Test Cases ***
 
-Should Configure Telemetry Mode
-    [Documentation]         Configure telemetry streaming mode
-    [Tags]                  telemetry  configuration
+Should Auto-Tune Position Controller
+    [Documentation]    Auto-tune from poor initial gains
+    [Tags]              adaptive  auto-tune  position
     
-    Configure Telemetry Mode    mode=Streaming    rate=1000
-    Verify Telemetry Active
+    # Set poor gains
+    Configure Position Controller    kp=1.0    ki=0.0
+    
+    # Start auto-tuning
+    Start Auto Tune    controller=position
+    
+    # Wait for completion
+    Wait For Auto Tune Complete    timeout=30s
+    
+    # Verify improved performance
+    ${error_before}=    Measure Tracking Error
+    # ... compare with error after tuning
 
-Should Stream Telemetry At 1kHz
-    [Documentation]         Verify 1 kHz streaming rate
-    [Tags]                  telemetry  streaming  performance
+Should Reduce Current Under Low Load (coolStep)
+    [Documentation]    Verify coolStep reduces current
+    [Tags]              adaptive  coolstep  power
     
-    Configure Telemetry Mode    mode=Streaming
-    ${messages}=    Collect Telemetry    duration=1s
-    ${count}=    Get Length    ${messages}
-    Should Be True    900 <= ${count} <= 1100    # Allow 10% margin
+    Enable CoolStep
+    
+    # Idle: should reduce current
+    ${current_idle}=    Measure Current    duration=1s
+    
+    # High load: should increase current
+    Apply External Load    50%
+    ${current_loaded}=    Measure Current    duration=1s
+    
+    Should Be True    ${current_idle} < ${current_loaded} * 0.5
 
-Should Include Motion State In Telemetry
-    [Documentation]         Verify position/velocity data
-    [Tags]                  telemetry  motion
+Should Derate Velocity Under High Load (dcStep)
+    [Documentation]    Verify dcStep prevents stalls
+    [Tags]              adaptive  dcstep  velocity
     
-    Send SetTarget V2    90.0
-    Configure Telemetry Mode    mode=Streaming
-    ${telemetry}=    Get Telemetry Sample
-    Should Contain    ${telemetry}    position
-    Should Contain    ${telemetry}    velocity
+    Enable DcStep    threshold=70%
+    
+    # Normal load: full velocity
+    Send SetTarget V2    90.0    max_vel=100.0
+    ${vel_normal}=    Measure Max Velocity
+    
+    # High load: reduced velocity
+    Apply External Load    85%
+    Send SetTarget V2    180.0    max_vel=100.0
+    ${vel_loaded}=    Measure Max Velocity
+    
+    Should Be True    ${vel_loaded} < ${vel_normal} * 0.9
 
-Should Include FOC State In Telemetry
-    [Documentation]         Verify current/voltage data
-    [Tags]                  telemetry  foc
+Should Detect Stall Condition (stallGuard)
+    [Documentation]    Detect when motor stalls
+    [Tags]              adaptive  stallguard  safety
     
-    ${telemetry}=    Get Telemetry Sample
-    Should Have Field    ${telemetry.current_d}
-    Should Have Field    ${telemetry.current_q}
+    Enable StallGuard
+    
+    # Apply blocking load
+    Block Motor    # Simulate mechanical jam
+    
+    # Try to move
+    Send SetTarget V2    45.0    max_vel=50.0
+    
+    # Should detect stall
+    ${status}=    Wait For Stall Detection    timeout=2s
+    Should Be Equal    ${status}    STALLED
+    
+    # Should trigger recovery
+    ${response}=    Get Joint Status
+    Should Contain    ${response.warnings}    STALL_DETECTED
 
-Should Calculate Derived Metrics
-    [Documentation]         Verify torque/power calculation
-    [Tags]                  telemetry  metrics
+Should Calculate Health Score
+    [Documentation]    Calculate system health
+    [Tags]              adaptive  diagnostics  health
     
-    ${telemetry}=    Get Telemetry Sample
-    Should Have Field    ${telemetry.torque_estimate}
-    Should Have Field    ${telemetry.power}
-    Should Have Field    ${telemetry.load_percent}
+    # Normal operation: high score
+    ${health}=    Get Health Score
+    Should Be True    ${health} > 80
+    
+    # Simulate degradation
+    Set Temperature    70°C
+    Increase Error Rate    10 errors/min
+    
+    # Score should decrease
+    ${health_degraded}=    Get Health Score
+    Should Be True    ${health_degraded} < 50
 
-Should Handle OnDemand Mode
-    [Documentation]         Only send when requested
-    [Tags]                  telemetry  on-demand
+Should Predict Failure
+    [Documentation]    Predict time to failure
+    [Tags]              adaptive  diagnostics  prediction
     
-    Configure Telemetry Mode    mode=OnDemand
-    Request Telemetry
-    ${telemetry}=    Wait For Telemetry    timeout=100ms
-    Should Not Be Empty    ${telemetry}
-
-Should Handle Periodic Mode
-    [Documentation]         Send at configured rate
-    [Tags]                  telemetry  periodic
-    
-    Configure Telemetry Mode    mode=Periodic    rate=100
-    ${messages}=    Collect Telemetry    duration=1s
-    ${count}=    Get Length    ${messages}
-    Should Be True    90 <= ${count} <= 110
-
-Should Handle OnChange Mode
-    [Documentation]         Send only on significant changes
-    [Tags]                  telemetry  on-change
-    
-    Configure Telemetry Mode    mode=OnChange    threshold=5.0
-    ${count_idle}=    Count Telemetry Messages    duration=1s
-    
-    Send SetTarget V2    90.0
-    ${count_motion}=    Count Telemetry Messages    duration=1s
-    
-    Should Be True    ${count_motion} > ${count_idle}
-
-Should Handle Adaptive Mode
-    [Documentation]         Adapt rate to motion activity
-    [Tags]                  telemetry  adaptive
-    
-    Configure Telemetry Mode    mode=Adaptive
-    # During motion: high rate
-    Send SetTarget V2    90.0
-    ${rate_motion}=    Measure Telemetry Rate    duration=1s
-    
-    # During idle: low rate
-    Wait For Motion Complete
-    ${rate_idle}=    Measure Telemetry Rate    duration=1s
-    
-    Should Be True    ${rate_motion} > ${rate_idle} * 3
-
-Should Report FOC Loop Timing
-    [Documentation]         Monitor FOC performance
-    [Tags]                  telemetry  performance
-    
-    ${telemetry}=    Get Telemetry Sample
-    ${loop_time}=    Get    ${telemetry.foc_loop_time_us}
-    Should Be True    ${loop_time} < 100    # < 100 µs (10 kHz)
-
-Should Detect Trajectory Following
-    [Documentation]         Report trajectory active status
-    [Tags]                  telemetry  trajectory
-    
-    Send SetTarget V2    90.0
-    ${telemetry}=    Get Telemetry Sample
-    Should Be True    ${telemetry.trajectory_active}
-
-Should Report Load Estimation
-    [Documentation]         Estimate mechanical load
-    [Tags]                  telemetry  load
-    
-    # Apply load via mock
-    Set Motor Load    50    # 50% load
-    ${telemetry}=    Get Telemetry Sample
-    Should Be True    40 <= ${telemetry.load_percent} <= 60
-
-Should Handle Bandwidth Limits
-    [Documentation]         Gracefully handle CAN saturation
-    [Tags]                  telemetry  bandwidth
-    
-    # Saturate CAN with commands
-    FOR    ${i}    IN RANGE    100
-        Send SetTarget V2    ${i}
+    # Simulate increasing temperature trend
+    FOR    ${i}    IN RANGE    20
+        Set Temperature    ${40 + ${i}}°C
+        Sleep    1s
     END
     
-    # Telemetry should still work
-    ${telemetry}=    Get Telemetry Sample    timeout=1s
-    Should Not Be Empty    ${telemetry}
+    # Should predict failure
+    ${ttf}=    Get Time To Failure
+    Should Not Be None    ${ttf}
+    Should Be True    ${ttf} > 0
 
-... (8+ more tests)
+Should Adapt To Load Changes
+    [Documentation]    System adapts to varying load
+    [Tags]              adaptive  integration
+    
+    Enable Adaptive Control    # All features
+    
+    # Low load phase
+    ${current_low}=    Measure Current
+    
+    # Increase load
+    Apply External Load    60%
+    ${current_med}=    Measure Current
+    
+    # High load phase
+    Apply External Load    90%
+    ${current_high}=    Measure Current
+    
+    # Verify adaptation
+    Should Be True    ${current_low} < ${current_med} < ${current_high}
+
+... (18+ more tests)
 ```
 
 ---
 
-## 🚨 Important Guidelines (Unchanged)
+## 🚨 Important Guidelines (Updated)
 
 ### **Development Principles**
 
-1. ✅ **Clean Code** - SOLID, DRY, KISS principles
-2. ✅ **Test First** - Write tests before/with implementation
-3. ✅ **Incremental** - Small, atomic commits
-4. ✅ **Documentation** - Comment complex logic
-5. ✅ **Performance** - Profile critical paths (< 5 µs in FOC loop)
-6. ✅ **Safety** - Validate all inputs, handle errors
+1. ✅ **Clean Code** - SOLID, DRY, KISS (proven in Phase 1+2)
+2. ✅ **Test First** - Continue comprehensive testing
+3. ✅ **Incremental** - Small commits (worked well)
+4. ✅ **Performance** - Critical for adaptive features
+5. ✅ **Safety** - Adaptive control must be safe
+6. ✅ **Calibration** - Motor-specific parameters
 
 ### **Performance Requirements**
 
-| Metric | Target | Critical |
-|--------|--------|----------|
-| Telemetry collection | < 5 µs | FOC loop overhead |
-| Telemetry generation | < 50 µs | Message creation |
-| Streaming rate | 1 kHz | Maximum bandwidth |
-| CAN bandwidth usage | < 20% | Leave room for commands |
-| Memory per stream | < 5 KB | Embedded constraints |
+| Feature | Target | Critical For |
+|---------|--------|-------------|
+| Load estimation | < 10 µs | FOC loop overhead |
+| coolStep update | < 20 µs | Current control |
+| dcStep update | < 10 µs | Velocity scaling |
+| stallGuard check | < 5 µs | Fast detection |
+| Health score | < 100 µs | Periodic calculation |
+| Auto-tune iteration | < 1 ms | Background task |
 
-### **Error Handling**
+### **Safety Requirements**
 
 ```rust
-// ✅ GOOD: Non-blocking telemetry
-pub fn send_telemetry(&mut self) -> Result<(), TelemetryError> {
-    match self.try_send() {
-        Ok(_) => Ok(()),
-        Err(TelemetryError::CanBusy) => {
-            // Drop this sample, continue
-            defmt::debug!("Telemetry dropped: CAN busy");
-            Ok(())
-        }
-        Err(e) => Err(e),
-    }
+// ✅ GOOD: Safe adaptive control
+pub fn update_current_scale(&mut self, load: f32) -> f32 {
+    // Never reduce below minimum (safety margin)
+    let scale = self.calculate_scale(load).max(MIN_CURRENT_SCALE);
+    
+    // Rate limit changes (prevent instability)
+    let max_change = MAX_CHANGE_PER_CYCLE;
+    self.current_scale = (self.current_scale + 
+        (scale - self.current_scale).clamp(-max_change, max_change))
+        .clamp(MIN_CURRENT_SCALE, 1.0);
+    
+    self.current_scale
 }
 
-// ❌ BAD: Blocking or panicking
-pub fn send_telemetry(&mut self) {
-    self.can.send_blocking(&msg).unwrap();  // Blocks FOC!
+// ❌ BAD: Unsafe - could reduce current too much
+pub fn update_current_scale(&mut self, load: f32) -> f32 {
+    load * 0.1  // Direct scaling, no limits!
 }
 ```
 
 ---
 
-## 📊 Phase 2 Success Criteria
+## 📊 Phase 3 Success Criteria
 
 ### Functionality ✅
-- [ ] TelemetryStream payload implemented
-- [ ] All telemetry modes working (OnDemand, Periodic, Streaming, OnChange, Adaptive)
-- [ ] FOC integration with < 5 µs overhead
-- [ ] 1 kHz streaming achieved
-- [ ] Load estimation working
+- [ ] Auto-tuning PI controllers working
+- [ ] coolStep current reduction (50%+ savings)
+- [ ] dcStep velocity derating working
+- [ ] stallGuard stall detection accurate
+- [ ] Health scoring (0-100%) implemented
+- [ ] Predictive failure detection working
 
 ### Quality ✅
-- [ ] 20+ tests passing
+- [ ] 25+ tests passing
 - [ ] No FOC loop timing violations
-- [ ] CAN bandwidth < 20% at 1 kHz
-- [ ] No memory leaks
+- [ ] Safe under all conditions
+- [ ] Motor-parameter configurable
 
 ### Performance ✅
-- [ ] Telemetry collection < 5 µs
-- [ ] Message generation < 50 µs
-- [ ] 1 kHz sustained rate
-- [ ] Adaptive mode reduces bandwidth by 70% when idle
+- [ ] Load estimation < 10 µs
+- [ ] Adaptive updates < 20 µs
+- [ ] Auto-tune converges < 30s
+- [ ] Power savings 50-75% (idle/low load)
+- [ ] Stall detection < 100 ms
 
 ### Documentation ✅
-- [ ] Protocol documentation updated
-- [ ] API docs for telemetry
-- [ ] Usage examples provided
-- [ ] Performance analysis documented
+- [ ] Adaptive control documentation
+- [ ] Auto-tuning guide
+- [ ] Safety analysis
+- [ ] Calibration procedures
 
 ---
 
-## 🔄 Git Workflow (Same as Phase 1)
+## 🔄 Git Workflow (Proven from Phase 1+2)
 
 ```bash
-# 1. Create Phase 2 branch
-git checkout -b feature/irpc-v2-telemetry
+# Create Phase 3 branch
+git checkout -b feature/irpc-v2-adaptive-control
 
-# 2. Implement telemetry
-# - Incremental commits
-# - Each commit functional
+# Implement features incrementally
+# Example commits:
+git commit -m "feat(adaptive): Implement load estimator and coolStep
 
-# 3. Example commit:
-git commit -m "feat(telemetry): Add TelemetryStream payload
+- Add LoadEstimator with current history
+- Implement coolStep current scaling
+- Adaptive reduction based on load
+- Safety limits and rate limiting
+- Unit tests for load estimation
 
-- Implement comprehensive telemetry structure
-- Add position, velocity, FOC state
-- Include derived metrics (torque, power, load)
-- Performance metrics (loop time)
-- 60 bytes, fits in CAN-FD frame
+Performance: < 10 µs per update
+Savings: 50-75% at low load
 
-Refs: IRPC_V2_PROTOCOL.md Phase 2"
+Refs: Phase 3, Task 2"
 
-# 4. Merge to main when complete
+# Merge when complete
 git checkout main
-git merge --no-ff feature/irpc-v2-telemetry
-git branch -d feature/irpc-v2-telemetry
+git merge --no-ff feature/irpc-v2-adaptive-control
+git branch -d feature/irpc-v2-adaptive-control
 ```
 
 ---
 
 ## 📚 Technical References
 
-### **Phase 1 Documents** (Completed)
-- ✅ `docs/IRPC_V2_PROTOCOL.md` - Motion planning spec
-- ✅ `PHASE_1_COMPLETE.md` - Phase 1 achievements
-- ✅ `SESSION_SUMMARY.md` - Implementation log
+### **Phase 1+2 Documents** (Completed)
+- ✅ `PHASE_1_COMPLETE.md` - Motion profiling
+- ✅ `PHASE_2_COMPLETE.md` - Streaming telemetry
+- ✅ `SESSION_SUMMARY_PHASES_1_2.md` - Combined summary
+- ✅ `IRPC_V2_PROTOCOL.md` - Protocol specs
 
-### **Phase 2 Research**
-- `docs/IRPC_EVOLUTION_RESEARCH.md` - Section 4.2: Telemetry
-- TMC5160T datasheet - Diagnostic features
-- CAN-FD bandwidth calculations
+### **Phase 3 Research**
+- `docs/IRPC_EVOLUTION_RESEARCH.md` - Section 4.3: Adaptive Control
+- TMC5160T datasheet - coolStep, dcStep, stallGuard
+- Ziegler-Nichols tuning method
+- Relay auto-tuning algorithm
 
-### **Telemetry Design Considerations**
+### **Control Theory**
 
-**Bandwidth Math:**
+**Ziegler-Nichols Tuning Rules:**
 ```
-CAN-FD: 5 Mbps data phase
-Message: 80 bytes = 640 bits
-1 kHz rate: 640 kbps (12.8% bandwidth)
+Step 1: Find ultimate gain Ku
+  - Increase Kp until sustained oscillation
+  - Ku = Kp at oscillation
 
-Room for:
-- Commands: ~100/sec (1.3%)
-- Other traffic: 86% available
-✅ Sustainable
+Step 2: Measure ultimate period Tu
+  - Tu = period of oscillation
+
+Step 3: Calculate gains
+  - Kp = 0.6 * Ku
+  - Ki = 1.2 * Ku / Tu  
+  - Kd = 0.075 * Ku * Tu
 ```
 
-**FOC Loop Integration:**
+**Load Estimation:**
 ```
-FOC loop: 100 µs period (10 kHz)
-Telemetry collection budget: < 5 µs (5% overhead)
+Torque = k_t * I_q (from FOC)
+Load = Torque / (Inertia * Acceleration + Friction * Velocity)
 
-Allowed operations:
-✅ Read sensor values (< 1 µs)
-✅ Ring buffer update (< 1 µs)
-✅ Simple calculations (< 2 µs)
-✅ Flags/counters (< 1 µs)
-
-NOT allowed:
-❌ Float conversions (defer to send time)
-❌ CAN transmission (async task)
-❌ Complex calculations (defer)
+Simplified:
+Load% = (I_q / I_rated) * 100
 ```
 
 ---
@@ -568,40 +674,43 @@ NOT allowed:
 
 1. ✅ **Start with planning** - Design approach first
 2. ✅ **Show your work** - Explain decisions
-3. ✅ **Incremental progress** - Small commits, updates
-4. ✅ **Test thoroughly** - Verify each feature
-5. ✅ **Document as you go** - Keep docs current
+3. ✅ **Incremental progress** - Small commits
+4. ✅ **Test thoroughly** - Comprehensive tests
+5. ✅ **Safety first** - Adaptive control must be safe
 
 **I prefer:**
 - 📊 Code over talk
 - 🎯 Direct solutions
 - ⚡ Fast iteration
 - 🧪 Tests as proof
+- 🛡️ Safety verification
 
 ---
 
-## 🚀 Let's Start Phase 2!
+## 🚀 Let's Start Phase 3!
 
 **Your first message should be:**
 
-1. ✅ Confirm you understand Phase 2 goals
-2. ✅ Outline approach for telemetry payloads
+1. ✅ Confirm you understand Phase 3 goals
+2. ✅ Outline approach for adaptive control
 3. ✅ Create feature branch
-4. ✅ Start coding!
+4. ✅ Start with load estimation!
 
 **Example:**
 ```
-Ready to implement Phase 2: Streaming Telemetry! 🚀
+Ready to implement Phase 3: Adaptive Control! 🚀
 
 Approach:
-1. Create feature/irpc-v2-telemetry branch
-2. Add TelemetryStream payload to protocol
-3. Implement TelemetryCollector in FOC loop
-4. Add streaming logic to CAN task
-5. Create comprehensive tests
-6. Optimize for < 5 µs collection overhead
+1. Create feature/irpc-v2-adaptive-control branch
+2. Implement LoadEstimator with current monitoring
+3. Add coolStep adaptive current control
+4. Add dcStep load-adaptive velocity
+5. Implement stallGuard stall detection
+6. Create auto-tuning for PI controllers
+7. Add health monitoring & prediction
+8. Create comprehensive tests (25+)
 
-Starting with protocol enhancement...
+Starting with load estimation and coolStep...
 ```
 
 ---
@@ -612,12 +721,13 @@ Starting with protocol enhancement...
 # Build firmware
 cargo build --release --features renode-mock
 
-# Run tests (including Phase 1)
+# Run all tests (including Phase 1+2)
 cargo test
 renode-test renode/tests/
 
-# Check Phase 1 status
+# Check current status
 git log --oneline -5
+git diff --stat
 
 # Performance profiling
 cargo build --release --features renode-mock,profiling
@@ -625,31 +735,44 @@ cargo build --release --features renode-mock,profiling
 # Documentation
 cargo doc --open
 
-# Git workflow (Phase 2)
-git checkout -b feature/irpc-v2-telemetry
-git commit -m "feat(telemetry): <description>"
-git push origin feature/irpc-v2-telemetry
+# Git workflow (Phase 3)
+git checkout -b feature/irpc-v2-adaptive-control
+git commit -m "feat(adaptive): <description>"
+git push origin feature/irpc-v2-adaptive-control
 ```
 
 ---
 
-## 🎯 Phase 1 vs Phase 2
+## 🎯 Phase 1+2+3 Vision
 
-| Aspect | Phase 1 ✅ | Phase 2 🚀 |
-|--------|-----------|-----------|
-| **Focus** | Motion planning | Telemetry streaming |
-| **Complexity** | Algorithms | Real-time streaming |
-| **Performance** | Planning: < 1 ms | Collection: < 5 µs |
-| **Tests** | 22 integration | 20+ integration |
-| **Impact** | Better motion | Better observability |
-| **Lines** | ~2,300 added | ~1,500 expected |
+| Phase | Status | Key Feature | Impact |
+|-------|--------|-------------|--------|
+| **Phase 1** | ✅ Complete | Motion Profiling | -60% vibration |
+| **Phase 2** | ✅ Complete | Streaming Telemetry | 1 kHz real-time |
+| **Phase 3** | 🚀 Ready | Adaptive Control | -50% power |
+
+**After Phase 3:**
+- 🎯 Intelligent motion (S-curves)
+- 📡 Real-time monitoring (1 kHz)
+- 🧠 Self-optimizing (auto-tune)
+- ⚡ Power efficient (coolStep)
+- 🛡️ Fault tolerant (stallGuard)
+- 📊 Predictive maintenance (health)
+
+**Total Expected Impact:**
+- 60% less vibration ✅
+- 50-75% power savings 🎯
+- Zero manual tuning 🎯
+- Predictive maintenance 🎯
+- Automatic fault recovery 🎯
 
 ---
 
-**ВПЕРЁД! Phase 2: Streaming Telemetry! 🚀💪**
+**ВПЕРЁД! Phase 3: Adaptive Control! 🚀💪**
 
-**Phase 1 Foundation is solid. Time to add real-time observability!** 📡
+**Phase 1+2 foundation is solid. Time to add intelligence!** 🤖
 
 ---
 
-_Last Updated: 2025-10-06 after Phase 1 completion_
+_Last Updated: 2025-10-06 after Phase 1+2 completion_
+_Next: Phase 3 - Adaptive Control (3 weeks, 120 hours)_
