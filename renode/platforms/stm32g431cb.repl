@@ -1,0 +1,59 @@
+// STM32G431CB platform definition for Renode
+// CLN17 v2.0 FOC Motor Controller
+
+using "platforms/cpus/stm32g4.repl"
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x8000  // 32KB SRAM
+
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x20000  // 128KB Flash
+
+// FDCAN1 for iRPC communication
+fdcan1: CAN.STMCAN @ sysbus 0x40006400
+    -> nvic@19
+
+// Timers for PWM
+tim1: Timers.STM32_Timer @ sysbus 0x40012C00
+    frequency: 170000000  // 170 MHz
+    -> nvic@24
+
+tim2: Timers.STM32_Timer @ sysbus 0x40000000
+    frequency: 170000000
+    -> nvic@28
+
+tim3: Timers.STM32_Timer @ sysbus 0x40000400
+    frequency: 170000000
+    -> nvic@29
+
+// ADC for current sensing
+adc1: Analog.STM32F4_ADC @ sysbus 0x50000000
+    -> nvic@18
+
+adc2: Analog.STM32F4_ADC @ sysbus 0x50000100
+    -> nvic@18
+
+// SPI for encoder (AS5047P)
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    -> nvic@35
+
+// UART for debugging
+usart1: UART.STM32_UART @ sysbus 0x40013800
+    -> nvic@37
+
+// GPIO
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
+
+// Flash controller
+flashController: MTD.STM32G4_FlashController @ sysbus 0x40022000
+    flash: flash
+
+// Clock configuration (for reference)
+// HSI: 16 MHz
+// PLL: 170 MHz (max for STM32G4)
+// AHB: 170 MHz
+// APB1: 170 MHz  
+// APB2: 170 MHz
+

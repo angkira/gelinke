@@ -1,0 +1,22 @@
+# Renode script for CLN17 v2.0 Joint Firmware testing
+
+# Create machine
+mach create "joint"
+machine LoadPlatformDescription @renode/platforms/stm32g431cb.repl
+
+# Load firmware binary
+sysbus LoadELF @target/thumbv7em-none-eabihf/release-mock/joint_firmware
+
+# Create CAN hub for multi-joint testing (optional)
+emulation CreateCANHub "can_hub"
+connector Connect sysbus.fdcan1 can_hub
+
+# Set up logging
+logLevel 3
+
+# Create terminal for UART output
+showAnalyzer sysbus.usart1
+
+# Start emulation (paused - tests will start it)
+# start
+
