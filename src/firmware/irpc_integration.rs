@@ -2,12 +2,13 @@
 ///
 /// Bridges iRPC protocol with FOC control system.
 
-use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload};
+use irpc::protocol::{DeviceId, LifecycleState, Message, Payload, SetTargetPayload, SetTargetPayloadV2, MotionProfile};
 use irpc::joint::Joint;
 use fixed::types::I16F16;
 
 use crate::firmware::control::position::PositionController;
 use crate::firmware::control::velocity::VelocityController;
+use crate::firmware::control::motion_planner::{MotionPlanner, MotionConfig, Trajectory};
 
 /// Bridge between iRPC Joint and FOC control system.
 ///
@@ -19,6 +20,14 @@ pub struct JointFocBridge {
     position_ctrl: PositionController,
     /// Velocity controller
     velocity_ctrl: VelocityController,
+    /// Motion planner for trajectory generation
+    motion_planner: MotionPlanner,
+    /// Current trajectory (if following a planned motion)
+    current_trajectory: Option<Trajectory>,
+    /// Trajectory start time (microseconds)
+    trajectory_start_time: u64,
+    /// Current position estimate (radians)
+    current_position: I16F16,
     /// Current control mode
     mode: ControlMode,
 }
@@ -41,6 +50,10 @@ impl JointFocBridge {
             joint: Joint::new(device_id),
             position_ctrl: PositionController::new(Default::default()),
             velocity_ctrl: VelocityController::new(Default::default()),
+            motion_planner: MotionPlanner::new(MotionConfig::default()),
+            current_trajectory: None,
+            trajectory_start_time: 0,
+            current_position: I16F16::ZERO,
             mode: ControlMode::Position,
         }
     }
@@ -57,18 +70,27 @@ impl JointFocBridge {
         // Let iRPC handle lifecycle transitions
         let response = self.joint.handle_message(msg)?;
 
-        // If it's a SetTarget command and we're Active, configure FOC
-        if let Payload::SetTarget(target) = &msg.payload {
-            if self.state() == LifecycleState::Active {
-                self.apply_target(target);
+        // Handle SetTarget commands when Active
+        if self.state() == LifecycleState::Active {
+            match &msg.payload {
+                Payload::SetTarget(target) => {
+                    self.apply_target_v1(target);
+                }
+                Payload::SetTargetV2(target) => {
+                    self.apply_target_v2(target);
+                }
+                _ => {}
             }
         }
 
         Some(response)
     }
 
-    /// Apply iRPC target to FOC controllers.
-    fn apply_target(&mut self, target: &SetTargetPayload) {
+    /// Apply iRPC v1 target to FOC controllers (simple mode).
+    fn apply_target_v1(&mut self, target: &SetTargetPayload) {
+        // Clear any ongoing trajectory
+        self.current_trajectory = None;
+        
         match self.mode {
             ControlMode::Position => {
                 // Convert degrees to radians
@@ -83,7 +105,7 @@ impl JointFocBridge {
                 config.max_velocity = max_vel;
                 self.position_ctrl.set_config(config);
                 
-                defmt::info!("iRPC: Set position target {}° @ {}°/s", target.target_angle, target.velocity_limit);
+                defmt::info!("iRPC v1: Set position target {}° @ {}°/s", target.target_angle, target.velocity_limit);
             }
             ControlMode::Velocity => {
                 // Direct velocity control
@@ -92,11 +114,62 @@ impl JointFocBridge {
                 
                 self.velocity_ctrl.set_target(target_vel);
                 
-                defmt::info!("iRPC: Set velocity target {}°/s", target.velocity_limit);
+                defmt::info!("iRPC v1: Set velocity target {}°/s", target.velocity_limit);
             }
             ControlMode::Torque => {
-                // Torque control would set current directly
-                defmt::info!("iRPC: Torque control not yet implemented");
+                defmt::info!("iRPC v1: Torque control not yet implemented");
+            }
+        }
+    }
+
+    /// Apply iRPC v2 target with motion profiling.
+    fn apply_target_v2(&mut self, target: &SetTargetPayloadV2) {
+        if self.mode != ControlMode::Position {
+            defmt::warn!("iRPC v2: Motion profiling only available in Position mode");
+            return;
+        }
+
+        // Convert degrees to radians
+        let start_rad = self.current_position;
+        let end_rad = I16F16::from_num(target.target_angle * core::f32::consts::PI / 180.0);
+        let max_vel = I16F16::from_num(target.max_velocity * core::f32::consts::PI / 180.0);
+        let max_accel = I16F16::from_num(target.max_acceleration * core::f32::consts::PI / 180.0);
+
+        // Generate trajectory based on profile type
+        let trajectory = match target.profile {
+            MotionProfile::Trapezoidal => {
+                self.motion_planner.plan_trapezoidal(start_rad, end_rad, max_vel, max_accel)
+            }
+            MotionProfile::SCurve => {
+                let max_jerk = if target.max_jerk > 0.0 {
+                    I16F16::from_num(target.max_jerk * core::f32::consts::PI / 180.0)
+                } else {
+                    self.motion_planner.config().max_jerk
+                };
+                self.motion_planner.plan_scurve(start_rad, end_rad, max_vel, max_accel, max_jerk)
+            }
+            MotionProfile::Adaptive => {
+                // TODO: Implement adaptive profiling
+                defmt::warn!("iRPC v2: Adaptive profiling not yet implemented, using trapezoidal");
+                self.motion_planner.plan_trapezoidal(start_rad, end_rad, max_vel, max_accel)
+            }
+        };
+
+        match trajectory {
+            Ok(traj) => {
+                defmt::info!("iRPC v2: Generated {:?} trajectory: {}° → {}°, {}s, {} waypoints",
+                    traj.profile_type, 
+                    target.target_angle,
+                    target.target_angle,
+                    traj.total_time.to_num::<f32>(),
+                    traj.waypoints.len()
+                );
+                
+                self.current_trajectory = Some(traj);
+                self.trajectory_start_time = 0; // Will be set on first update
+            }
+            Err(e) => {
+                defmt::error!("iRPC v2: Motion planning failed: {:?}", e);
             }
         }
     }
@@ -120,6 +193,51 @@ impl JointFocBridge {
     pub fn set_control_mode(&mut self, mode: ControlMode) {
         self.mode = mode;
         defmt::info!("iRPC: Control mode changed to {:?}", mode);
+    }
+
+    /// Update trajectory following (call this in FOC loop).
+    ///
+    /// Returns the target position from the trajectory, or None if no trajectory is active.
+    pub fn update_trajectory(&mut self, current_time_us: u64, current_position: I16F16) -> Option<I16F16> {
+        self.current_position = current_position;
+
+        let trajectory = self.current_trajectory.as_ref()?;
+
+        // Initialize start time on first call
+        if self.trajectory_start_time == 0 {
+            self.trajectory_start_time = current_time_us;
+        }
+
+        // Calculate elapsed time in seconds
+        let elapsed_us = current_time_us - self.trajectory_start_time;
+        let elapsed_s = I16F16::from_num(elapsed_us as f32 / 1_000_000.0);
+
+        // Check if trajectory is complete
+        if elapsed_s >= trajectory.total_time {
+            let final_pos = trajectory.end_position;
+            self.current_trajectory = None;
+            self.trajectory_start_time = 0;
+            defmt::debug!("iRPC v2: Trajectory complete at {} rad", final_pos);
+            return Some(final_pos);
+        }
+
+        // Interpolate trajectory
+        let point = trajectory.interpolate(elapsed_s);
+        
+        // Update position controller target
+        self.position_ctrl.set_target(point.position);
+
+        Some(point.position)
+    }
+
+    /// Check if a trajectory is currently active.
+    pub fn has_active_trajectory(&self) -> bool {
+        self.current_trajectory.is_some()
+    }
+
+    /// Get motion planner reference.
+    pub fn motion_planner(&mut self) -> &mut MotionPlanner {
+        &mut self.motion_planner
     }
 }
 
