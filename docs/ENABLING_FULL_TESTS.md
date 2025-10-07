@@ -426,3 +426,5 @@ renode-test renode/tests/
 **NO firmware changes needed!** 🎯
 
 Всё готово к запуску! 🚀
+
+

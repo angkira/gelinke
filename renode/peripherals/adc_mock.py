@@ -159,3 +159,5 @@ if "request" in dir():
             self.adc.enable_motion = (value & 1) != 0
             if self.adc.enable_motion:
                 self.NoisyLog("ADC Mock: Synthetic motion enabled")
+
+

@@ -1,0 +1,59 @@
+# Load Python mock peripherals into Renode
+
+# Set peripheral path
+$peripheralPath = @renode/peripherals
+
+# ============================================================================
+# Load Python Peripheral Scripts
+# ============================================================================
+
+# Note: In Renode, Python peripherals are typically loaded using:
+# `using sysbus` to select the system bus context
+# Then creating peripheral instances
+
+# Example (pseudo-code for reference):
+# python "from path.to.module import ClassName"
+# sysbus CreatePeripheralOfType "AS5047PEncoder" "encoder"
+# spi1 Register encoder
+
+# ============================================================================
+# Setup for Robot Framework tests
+# ============================================================================
+
+# These commands will be called from Robot Framework tests as needed:
+
+# Load and configure encoder
+# Execute Command    python $peripheralPath/as5047p_encoder.py
+# Execute Command    sysbus.spi1 Register encoder
+
+# Load current ADC
+# Execute Command    python $peripheralPath/current_sense_adc.py
+
+# Load CAN test device
+# Execute Command    python $peripheralPath/can_test_device.py
+# Execute Command    connector Connect canTest can_hub
+
+# Load motor simulator
+# Execute Command    python $peripheralPath/motor_simulator.py
+
+# ============================================================================
+# Helper functions for tests
+# ============================================================================
+
+# Set encoder position (for testing)
+# Execute Command    encoder SetPosition 0
+
+# Set motor load (for adaptive control tests)
+# Execute Command    motor SetLoad 0.5
+
+# Send CAN commands
+# Execute Command    canTest SendConfigure
+# Execute Command    canTest SendActivate
+# Execute Command    canTest SendSetTargetV2 90.0 100.0 500.0 0
+
+# Read telemetry
+# Execute Command    canTest GetLastResponse
+
+# Note: Actual Python peripheral loading in Renode requires
+# proper initialization which will be handled by test helpers
+

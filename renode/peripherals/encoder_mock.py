@@ -176,3 +176,5 @@ if "request" in dir():
             self.encoder.error_type = value & 0x3
             if value != 0:
                 self.NoisyLog(f"Encoder Mock: Error injection type={value}")
+
+

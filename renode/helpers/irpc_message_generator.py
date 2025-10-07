@@ -271,3 +271,5 @@ if __name__ == "__main__":
     print("\n=== For Robot Framework ===")
     print("${configure}=    Set Variable    " + generate_test_bytes("configure"))
     print("Execute Command    sysbus.fdcan1 SendFrame ${configure}")
+
+

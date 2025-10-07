@@ -837,3 +837,5 @@ pub enum InterpolationType {
 *Let's build the future of intelligent motor control!* 🚀
 
 **ДАВАЙ НАЧНЕМ С PHASE 1?** 💪
+
+

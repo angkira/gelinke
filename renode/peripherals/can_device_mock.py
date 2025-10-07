@@ -157,3 +157,5 @@ if "request" in dir():
         if request.offset == 0x00:
             self.device.rx_queue.clear()
             self.NoisyLog("RX queue cleared")
+
+

@@ -1,5 +1,5 @@
 // STM32G431CB platform definition for Renode
-// CLN17 v2.0 FOC Motor Controller
+// CLN17 v2.0 FOC Motor Controller with Mock Peripherals
 
 using "platforms/cpus/stm32g4.repl"
 
@@ -49,6 +49,15 @@ gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
 // Flash controller
 flashController: MTD.STM32G4_FlashController @ sysbus 0x40022000
     flash: flash
+
+// ============================================================================
+// MOCK PERIPHERALS (loaded via Python scripts in .resc)
+// ============================================================================
+// These will be created and connected by the init script:
+// - encoder: AS5047P magnetic encoder (connected to spi1)
+// - currentADC: 3-phase current sense (provides values to adc1/adc2)
+// - canTest: CAN test device (connected to CAN hub)
+// - motor: BLDC motor simulator (physics simulation)
 
 // Clock configuration (for reference)
 // HSI: 16 MHz

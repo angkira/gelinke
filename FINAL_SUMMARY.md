@@ -398,3 +398,5 @@ renode-test renode/tests/example_with_mocks.robot
 **Created with ❤️ for embedded Rust motor control testing**
 
 **Погнали тестировать! 🚀💪**
+
+

@@ -1,22 +1,78 @@
-# Renode script for CLN17 v2.0 Joint Firmware testing
+# Renode script for CLN17 v2.0 Joint Firmware testing with Mock Peripherals
 
 # Create machine
 mach create "joint"
+
+# Load platform description
 machine LoadPlatformDescription @renode/platforms/stm32g431cb.repl
 
-# Load firmware binary
-sysbus LoadELF @target/thumbv7em-none-eabihf/release-mock/joint_firmware
+# Load firmware binary (will be specified by test)
+# sysbus LoadELF @target/thumbv7em-none-eabihf/release-mock/joint_firmware
 
-# Create CAN hub for multi-joint testing (optional)
+# ============================================================================
+# Load Mock Peripherals (Python scripts)
+# ============================================================================
+
+# Load Python peripheral scripts
+$peripheralPath = @renode/peripherals
+
+# AS5047P Encoder (SPI)
+# python $peripheralPath/as5047p_encoder.py
+# sysbus.spi1 Register encoder
+
+# Current Sense ADC
+# python $peripheralPath/current_sense_adc.py
+
+# CAN Test Device
+# python $peripheralPath/can_test_device.py
+
+# Motor Simulator
+# python $peripheralPath/motor_simulator.py
+
+# ============================================================================
+# Setup Communication
+# ============================================================================
+
+# Create CAN hub for multi-device communication
 emulation CreateCANHub "can_hub"
 connector Connect sysbus.fdcan1 can_hub
 
-# Set up logging
-logLevel 3
+# Connect CAN test device to hub (when loaded)
+# connector Connect canTest can_hub
+
+# ============================================================================
+# Logging and Monitoring
+# ============================================================================
+
+# Set up logging levels
+# 0 = Noisy, 1 = Debug, 2 = Info, 3 = Warning, 4 = Error
+logLevel 2
 
 # Create terminal for UART output
 showAnalyzer sysbus.usart1
 
-# Start emulation (paused - tests will start it)
-# start
+# Log file for debugging
+# logFile @test_output.log
+
+# ============================================================================
+# Simulation Configuration
+# ============================================================================
+
+# Set simulation quantum (affects timing accuracy)
+# quantum value 0.001  # 1ms quantum
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 
+# The Python peripherals are loaded by the test framework, not here directly.
+# Tests can access them via:
+#   - encoder.SetPosition(angle)
+#   - currentADC.SetLoad(torque)
+#   - canTest.SendCommand(...)
+#   - motor.SetLoad(torque)
+#
+# Start emulation with: start
+# Pause with: pause
+# Reset with: machine Reset
 
