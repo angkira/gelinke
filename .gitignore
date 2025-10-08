@@ -25,3 +25,8 @@ report.html
 # OS
 .DS_Store
 Thumbs.db
+# Demo visualization results
+demo_results/*.json
+demo_results/*.csv
+test_results/
+__pycache__/
