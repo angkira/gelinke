@@ -30,3 +30,6 @@ demo_results/*.json
 demo_results/*.csv
 test_results/
 __pycache__/
+
+# Test visualization PDF reports (regenerated)
+demo_results/*.pdf
