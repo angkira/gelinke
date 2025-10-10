@@ -16,6 +16,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "renode" / "tests")
 from test_data_collector import TestDataCollector
 from test_report_generator import FocTestReportGenerator, generate_test_suite_summary
 
+# Add physics model
+sys.path.insert(0, str(Path(__file__).parent.parent / "physics"))
+from motor_model import MotorDynamics, MotorParameters
+
 
 # Hardware configuration (matches firmware)
 class HardwareConfig:
@@ -1166,8 +1170,13 @@ def simulate_trapezoidal_motion(
     duration = t_accel + t_coast + t_decel + 0.2  # Add settling time
     n_samples = int(duration / dt)
 
-    position = 0.0
-    velocity = 0.0
+    # Initialize motor dynamics with realistic physics
+    motor_params = MotorParameters(
+        J=0.001,  # kg·m² - Rotor inertia
+        kt=0.15,  # Nm/A - Torque constant
+        b=0.0005,  # Nm·s/rad - Viscous damping
+    )
+    motor = MotorDynamics(motor_params)
 
     # Initialize improved controller (cascade: position -> velocity)
     if use_improved_controller:
@@ -1218,7 +1227,7 @@ def simulate_trapezoidal_motion(
                 target_accel = 0.0
 
         # FOC Controller
-        pos_error = target_pos - position
+        pos_error = target_pos - motor.position
 
         if use_improved_controller:
             # Improved cascade control architecture with feedforward
@@ -1230,7 +1239,7 @@ def simulate_trapezoidal_motion(
             target_vel_combined = kff_vel * target_vel + target_vel_from_pos
 
             # Inner loop (velocity): PID controller -> acceleration (feedback)
-            vel_error = target_vel_combined - velocity
+            vel_error = target_vel_combined - motor.velocity
             accel_fb = vel_controller.update(vel_error, dt, feedforward=0.0)
 
             # Add acceleration feedforward (reduces lag)
@@ -1239,27 +1248,34 @@ def simulate_trapezoidal_motion(
 
             # Apply acceleration with saturation
             accel = np.clip(accel, -max_accel, max_accel)
-            velocity += accel * dt
-            velocity = np.clip(velocity, -max_vel, max_vel)
-            position += velocity * dt
+
+            # Convert desired acceleration to motor current
+            # τ = J * α => i_q = τ / kt = (J * α) / kt
+            desired_torque = motor_params.J * accel
+            i_q = desired_torque / motor_params.kt
+            i_q = np.clip(i_q, -10.0, 10.0)  # Current limit
 
         else:
             # Original (broken) controller for comparison
-            vel_error = target_vel - velocity
+            vel_error = target_vel - motor.velocity
 
             # Original PI gains (with issues)
             kp_pos_orig = 20.0
             kp_vel_orig = 0.5
             # ki_vel = 2.0  # Declared but never used in original!
 
-            # Original control law (incorrect)
-            velocity += (kp_pos_orig * pos_error + kp_vel_orig * vel_error) * dt
-            position += velocity * dt
-
+            # Original control law (incorrect) - still kinematic for comparison
             accel = kp_pos_orig * pos_error + kp_vel_orig * vel_error
+            desired_torque = motor_params.J * accel
+            i_q = desired_torque / motor_params.kt
+            i_q = np.clip(i_q, -10.0, 10.0)
 
-        # Current (I_q) proportional to acceleration + friction
-        i_q = 0.1 * accel + 0.05 * velocity  # Motor model: τ = kt * i_q
+        # Update motor dynamics with realistic physics
+        state = motor.update(i_q, external_load=0.0, dt=dt)
+        position = state["position"]
+        velocity = state["velocity"]
+        accel_actual = state["acceleration"]
+
         i_d = 0.0  # Field weakening not used
 
         # Load estimation (from current)
@@ -1322,8 +1338,15 @@ def simulate_adaptive_control_load_step():
     duration = 0.6  # 600 ms
     n_samples = int(duration / dt)
 
-    position = 0.0
-    velocity = 0.0
+    # Initialize motor dynamics with realistic physics
+    motor_params = MotorParameters(
+        J=0.001,  # kg·m² - Rotor inertia
+        kt=0.15,  # Nm/A - Torque constant
+        b=0.0005,  # Nm·s/rad - Viscous damping
+    )
+    motor = MotorDynamics(motor_params)
+    motor.reset(position=0.0, velocity=0.0)
+
     target_pos = 1.0  # Hold position at 1.0 rad
 
     # Load estimation state with baseline learning
@@ -1346,7 +1369,7 @@ def simulate_adaptive_control_load_step():
             external_load = 0.0
 
         # IMPROVED Position controller with adaptive gain and deadband
-        pos_error = target_pos - position
+        pos_error = target_pos - motor.position
 
         # Adaptive gain: lower for small errors to reduce holding current
         if abs(pos_error) < 0.01:  # Within 0.01 rad (0.57°)
@@ -1356,12 +1379,18 @@ def simulate_adaptive_control_load_step():
 
         kd = 3.0  # Higher damping for stability
 
-        accel = kp * pos_error - kd * velocity
-        velocity += accel * dt
-        position += velocity * dt
+        # Controller outputs desired acceleration
+        accel = kp * pos_error - kd * motor.velocity
 
-        # Current (with external load)
-        i_q_base = 0.1 * accel + 0.05 * velocity + external_load / 0.15
+        # Convert to motor current: i_q = (J * α) / kt
+        desired_torque = motor_params.J * accel
+        i_q_base = desired_torque / motor_params.kt
+        i_q_base = np.clip(i_q_base, -10.0, 10.0)
+
+        # Update motor dynamics with realistic physics (including external load)
+        state = motor.update(i_q_base, external_load=external_load, dt=dt)
+        position = state["position"]
+        velocity = state["velocity"]
 
         # IMPROVED Load estimation with baseline learning
         if not baseline_learned:
