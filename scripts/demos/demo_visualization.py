@@ -1148,7 +1148,8 @@ def simulate_trapezoidal_motion(
     # Motion parameters
     target = 1.57  # 90 degrees
     max_vel = 2.0  # rad/s
-    max_accel = 5.0  # rad/s²
+    max_accel = 20.0  # rad/s² - For NEMA 17 stepper
+    # Note: NEMA 17 with J=0.000054: τ = 0.000054·20 = 0.001Nm << 0.56Nm holding torque ✓
 
     # Calculate motion phases
     t_accel = max_vel / max_accel
@@ -1171,10 +1172,15 @@ def simulate_trapezoidal_motion(
     n_samples = int(duration / dt)
 
     # Initialize motor dynamics with realistic physics
+    # NEMA 17 56Ncm (0.56 Nm) stepper motor parameters
     motor_params = MotorParameters(
-        J=0.001,  # kg·m² - Rotor inertia
-        kt=0.15,  # Nm/A - Torque constant
-        b=0.0005,  # Nm·s/rad - Viscous damping
+        J=0.000054,  # kg·m² - NEMA 17 rotor inertia (~54 gcm²)
+        kt=0.33,  # Nm/A - Torque constant (0.56Nm / 1.7A ≈ 0.33)
+        b=0.00005,  # Nm·s/rad - Very low damping (stepper has good bearings)
+        tau_coulomb=0.002,  # Nm - Low friction for stepper
+        tau_stribeck=0.001,  # Nm - Minimal stribeck
+        v_stribeck=0.1,  # rad/s
+        b_viscous=0.0001,  # Nm·s/rad - Low viscous friction
     )
     motor = MotorDynamics(motor_params)
 
@@ -1249,9 +1255,18 @@ def simulate_trapezoidal_motion(
             # Apply acceleration with saturation
             accel = np.clip(accel, -max_accel, max_accel)
 
-            # Convert desired acceleration to motor current
-            # τ = J * α => i_q = τ / kt = (J * α) / kt
-            desired_torque = motor_params.J * accel
+            # Convert desired acceleration to motor current WITH FULL COMPENSATION
+            # τ_total = J·α + τ_friction + b·ω + τ_load
+            # We need to compensate for ALL resistive forces that motor.update() will subtract
+
+            # Get friction torque from motor's friction model (includes Coulomb + Stribeck + viscous)
+            friction_comp = motor.friction.calculate(motor.velocity, motor.temperature)
+
+            # Get damping torque
+            damping_comp = motor_params.b * motor.velocity
+
+            # Total desired torque (feedforward compensation)
+            desired_torque = motor_params.J * accel + friction_comp + damping_comp
             i_q = desired_torque / motor_params.kt
             i_q = np.clip(i_q, -10.0, 10.0)  # Current limit
 
@@ -1339,10 +1354,15 @@ def simulate_adaptive_control_load_step():
     n_samples = int(duration / dt)
 
     # Initialize motor dynamics with realistic physics
+    # NEMA 17 56Ncm (0.56 Nm) stepper motor parameters
     motor_params = MotorParameters(
-        J=0.001,  # kg·m² - Rotor inertia
-        kt=0.15,  # Nm/A - Torque constant
-        b=0.0005,  # Nm·s/rad - Viscous damping
+        J=0.000054,  # kg·m² - NEMA 17 rotor inertia (~54 gcm²)
+        kt=0.33,  # Nm/A - Torque constant (0.56Nm / 1.7A ≈ 0.33)
+        b=0.00005,  # Nm·s/rad - Very low damping (stepper has good bearings)
+        tau_coulomb=0.002,  # Nm - Low friction for stepper
+        tau_stribeck=0.001,  # Nm - Minimal stribeck
+        v_stribeck=0.1,  # rad/s
+        b_viscous=0.0001,  # Nm·s/rad - Low viscous friction
     )
     motor = MotorDynamics(motor_params)
     motor.reset(position=0.0, velocity=0.0)
@@ -1620,6 +1640,43 @@ def tune_controller_gains():
 
     # Test configurations based on theoretical analysis
     test_configs = [
+        # ============================================================
+        # NEMA 17 56Ncm - Optimized gains for light stepper motor
+        # J=0.000054 kg·m² (18x lighter than heavy servo!)
+        # ============================================================
+        {
+            "name": "NEMA 17 Option 1: Moderate gains",
+            "use_improved": True,
+            "kp_pos": 30.0,
+            "kp_vel": 8.0,
+            "ki_vel": 4.0,
+            "kd_vel": 1.0,
+            "kff_vel": 1.0,
+            "kff_accel": 0.5,
+        },
+        {
+            "name": "NEMA 17 Option 2: High performance",
+            "use_improved": True,
+            "kp_pos": 50.0,
+            "kp_vel": 12.0,
+            "ki_vel": 6.0,
+            "kd_vel": 1.5,
+            "kff_vel": 1.0,
+            "kff_accel": 0.7,
+        },
+        {
+            "name": "NEMA 17 Option 3: Aggressive",
+            "use_improved": True,
+            "kp_pos": 80.0,
+            "kp_vel": 18.0,
+            "ki_vel": 10.0,
+            "kd_vel": 2.0,
+            "kff_vel": 1.0,
+            "kff_accel": 0.9,
+        },
+        # ============================================================
+        # OLD: Gains for kinematic model (not suitable for MotorDynamics!)
+        # ============================================================
         {
             "name": "Original (Broken)",
             "use_improved": False,
@@ -1800,7 +1857,7 @@ def tune_controller_gains():
         # We need to extract just the simulation part
         target = 1.57
         max_vel = 2.0
-        max_accel = 5.0
+        max_accel = 20.0  # For NEMA 17
         dt = 0.0001
 
         # Calculate motion phases
