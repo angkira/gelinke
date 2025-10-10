@@ -1,3 +1,4 @@
+pub mod calibration;
 pub mod clocks;
 pub mod config;
 pub mod control;

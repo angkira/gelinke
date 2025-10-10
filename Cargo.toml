@@ -18,7 +18,7 @@ fdcan = { version = "0.2.1", features = ["fdcan_g0_g4_l5"] }
 fixed = "1.29"
 foc = { version = "0.3.0", default-features = false }
 heapless = { version = "0.9.1", default-features = false, features = ["defmt"] }
-irpc = { version = "0.1.0", path = "../iRPC", default-features = false, features = ["joint_api", "stm32g4"] }
+irpc = { version = "2.1.0", path = "../iRPC", default-features = false, features = ["joint_api", "stm32g4"] }
 libm = "0.2"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
