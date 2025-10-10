@@ -370,4 +370,3 @@ if __name__ == "__main__":
     print(f"  Max torque: {np.max(result['torque_motor']):.3f} Nm")
 
     print("\n✅ Motor model ready for use!")
-

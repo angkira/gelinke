@@ -12,7 +12,11 @@ from demo_visualization import DisturbanceObserver
 
 # Add physics model
 sys.path.insert(0, str(Path(__file__).parent / "scripts" / "physics"))
-from motor_model import MotorDynamics, MotorParameters, FrictionModel as PhysicsFrictionModel
+from motor_model import (
+    MotorDynamics,
+    MotorParameters,
+    FrictionModel as PhysicsFrictionModel,
+)
 
 
 def test_observer_vs_baseline():
@@ -43,6 +47,7 @@ def test_observer_vs_baseline():
 
     # Initialize observer (uses demo_visualization's FrictionModel and DisturbanceObserver)
     from demo_visualization import FrictionModel as DemoFrictionModel
+
     friction_model_demo = DemoFrictionModel(
         tau_coulomb=0.02,
         b_viscous=0.001,
@@ -120,7 +125,9 @@ def test_observer_vs_baseline():
         i_q = desired_torque / motor_params.kt
 
         # Update motor dynamics with realistic physics
-        state = motor.update(i_q, external_load=external_load, dt=dt, temperature=temperature)
+        state = motor.update(
+            i_q, external_load=external_load, dt=dt, temperature=temperature
+        )
         position = state["position"]
         velocity = state["velocity"]
 
