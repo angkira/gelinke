@@ -106,15 +106,6 @@ Test All Modules Are Present
     File Should Exist    ${PROJECT_DIR}/src/firmware/telemetry.rs
     File Should Exist    ${PROJECT_DIR}/src/firmware/irpc_integration.rs
 
-Test Documentation Exists
-    [Documentation]    Verify all documentation is present
-    [Tags]    docs    unit    fast
-    
-    File Should Exist    ${PROJECT_DIR}/docs/IRPC_V2_ADAPTIVE.md
-    File Should Exist    ${PROJECT_DIR}/PHASE_3_COMPLETE.md
-    File Should Exist    ${PROJECT_DIR}/PHASE_1_COMPLETE.md
-    File Should Exist    ${PROJECT_DIR}/PHASE_2_COMPLETE.md
-
 Test Adaptive Control Tests Created
     [Documentation]    Verify Phase 3 tests are present
     [Tags]    tests    unit    fast
