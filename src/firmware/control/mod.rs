@@ -1,6 +1,10 @@
 pub mod position;
 pub mod velocity;
 pub mod observer;
+pub mod disturbance_observer;
+pub mod predictive_thermal;
+pub mod input_shaper;
 pub mod motion_planner;
 pub mod adaptive;
 pub mod auto_tuner;
+pub mod mpc;

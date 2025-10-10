@@ -1,0 +1,292 @@
+//! Model Predictive Control (MPC) for Position Tracking
+//!
+//! This module implements an MPC controller designed to run at 1 kHz,
+//! providing position and velocity setpoints to the existing 10 kHz
+//! cascade controller.
+//!
+//! # Architecture
+//!
+//! ```text
+//! 1 kHz MPC Loop (outer):
+//!   - Solves optimization problem
+//!   - Generates position/velocity trajectory
+//!   - Feeds setpoints to inner loop
+//!
+//! 10 kHz PID Loop (inner):
+//!   - Position P controller
+//!   - Velocity PID controller
+//!   - FOC current control
+//! ```
+//!
+//! # MPC Formulation
+//!
+//! State: x = [position, velocity, acceleration]
+//! Input: u = jerk
+//!
+//! Dynamics: x[k+1] = A*x[k] + B*u[k]
+//!
+//! Objective:
+//!   minimize Σ(Q*(x-x_ref)² + R*u²)
+//!
+//! Constraints:
+//!   |velocity| ≤ v_max
+//!   |acceleration| ≤ a_max
+//!   |jerk| ≤ j_max
+//!
+//! # Performance Target
+//!
+//! - Solve time: <500 µs (to fit in 1 kHz loop with margin)
+//! - Prediction horizon: N = 20-30 steps (20-30ms lookahead at 1 kHz)
+//! - Tracking accuracy: <1° RMS error
+//!
+//! # Implementation Status
+//!
+//! - [x] Phase 1: Python prototype (COMPLETE - 1.655° RMS, 3.8ms solve)
+//! - [ ] Phase 2a: Rust implementation with OSQP
+//! - [ ] Phase 2b: Optimization for <500µs solve time
+//! - [ ] Phase 2c: Integration with firmware control loop
+//! - [ ] Phase 3: Hardware testing and validation
+
+use fixed::types::I16F16;
+
+/// MPC controller configuration
+#[derive(Clone, Copy, Debug)]
+pub struct MPCConfig {
+    /// Prediction horizon (number of steps)
+    pub horizon: usize,
+
+    /// Sampling time (seconds)
+    pub dt: f32,
+
+    /// State cost weights [position, velocity, acceleration]
+    pub q_weights: [f32; 3],
+
+    /// Control effort weight
+    pub r_weight: f32,
+
+    /// Maximum velocity (rad/s)
+    pub v_max: f32,
+
+    /// Maximum acceleration (rad/s²)
+    pub a_max: f32,
+
+    /// Maximum jerk (rad/s³)
+    pub j_max: f32,
+}
+
+impl Default for MPCConfig {
+    fn default() -> Self {
+        Self {
+            horizon: 25,  // 25ms lookahead at 1 kHz
+            dt: 0.001,    // 1 kHz sampling
+            q_weights: [100.0, 10.0, 1.0],  // Position > velocity > acceleration
+            r_weight: 0.01,
+            v_max: 2.0,
+            a_max: 5.0,
+            j_max: 100.0,
+        }
+    }
+}
+
+/// MPC state (position, velocity, acceleration)
+#[derive(Clone, Copy, Debug)]
+pub struct MPCState {
+    pub position: f32,
+    pub velocity: f32,
+    pub acceleration: f32,
+}
+
+impl MPCState {
+    pub fn from_fixed(pos: I16F16, vel: I16F16, acc: I16F16) -> Self {
+        Self {
+            position: pos.to_num(),
+            velocity: vel.to_num(),
+            acceleration: acc.to_num(),
+        }
+    }
+
+    pub fn to_fixed(&self) -> (I16F16, I16F16, I16F16) {
+        (
+            I16F16::from_num(self.position),
+            I16F16::from_num(self.velocity),
+            I16F16::from_num(self.acceleration),
+        )
+    }
+}
+
+/// MPC controller output
+#[derive(Clone, Copy, Debug)]
+pub struct MPCOutput {
+    /// Optimal jerk command (rad/s³)
+    pub jerk: f32,
+
+    /// Predicted position N steps ahead (for visualization)
+    pub predicted_position: f32,
+
+    /// Solve time (microseconds)
+    pub solve_time_us: u32,
+
+    /// Solver status
+    pub status: MPCSolverStatus,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MPCSolverStatus {
+    /// Optimization succeeded
+    Optimal,
+
+    /// Optimization succeeded with reduced accuracy
+    OptimalInaccurate,
+
+    /// Solver failed to converge
+    Failed,
+
+    /// Not yet initialized
+    Uninitialized,
+}
+
+/// Model Predictive Controller
+///
+/// Note: This is a placeholder structure for Phase 2.
+/// Full implementation requires OSQP Rust bindings or
+/// code-generated QP solver.
+pub struct MPCController {
+    config: MPCConfig,
+
+    // System model (discrete-time state-space)
+    // x[k+1] = A*x[k] + B*u[k]
+    a_matrix: [[f32; 3]; 3],  // 3x3 state transition
+    b_matrix: [f32; 3],       // 3x1 input matrix
+
+    // Solver state
+    last_solution: Option<[f32; 25]>,  // Store last control sequence for warm start
+    solve_count: u32,
+    total_solve_time_us: u64,
+}
+
+impl MPCController {
+    /// Create new MPC controller with identified system model
+    pub fn new(config: MPCConfig, a_matrix: [[f32; 3]; 3], b_matrix: [f32; 3]) -> Self {
+        Self {
+            config,
+            a_matrix,
+            b_matrix,
+            last_solution: None,
+            solve_count: 0,
+            total_solve_time_us: 0,
+        }
+    }
+
+    /// Load system model from JSON parameters
+    ///
+    /// This would typically load the identified model from system_identification.py
+    /// For now, returns a placeholder model.
+    pub fn from_identified_model(config: MPCConfig) -> Self {
+        // Placeholder: These would come from motor_model.json
+        // Generated by mpc/system_identification.py
+        let a_matrix = [
+            [1.0, 0.001, 0.0],      // Position row
+            [0.0, 1.0, 0.00063],    // Velocity row
+            [0.0, 0.0, 0.368],      // Acceleration row (with time constant)
+        ];
+
+        let b_matrix = [0.0, 0.000037, 0.632];  // Jerk input effect
+
+        Self::new(config, a_matrix, b_matrix)
+    }
+
+    /// Solve MPC optimization problem
+    ///
+    /// Returns optimal jerk command and solver information.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_state` - Current [position, velocity, acceleration]
+    /// * `reference_trajectory` - Reference trajectory over horizon (position, velocity, acceleration)
+    ///
+    /// # Implementation Note
+    ///
+    /// Phase 2: This requires OSQP or a code-generated QP solver.
+    /// Options:
+    /// 1. Use `osqp` Rust crate (if available for no_std)
+    /// 2. Generate C code using CVXGEN/acados and call via FFI
+    /// 3. Implement simplified MPC with analytical solution
+    ///
+    /// For now, returns a placeholder.
+    pub fn solve(
+        &mut self,
+        current_state: MPCState,
+        reference_trajectory: &[(f32, f32, f32)],  // (pos, vel, acc) over horizon
+    ) -> MPCOutput {
+        // TODO: Implement QP solver
+        // For Phase 2a, this will use OSQP to solve:
+        //
+        // minimize: Σ(Q*(x-x_ref)² + R*u²)
+        // subject to:
+        //   x[k+1] = A*x[k] + B*u[k]
+        //   -v_max ≤ x[1,k] ≤ v_max
+        //   -a_max ≤ x[2,k] ≤ a_max
+        //   -j_max ≤ u[k] ≤ j_max
+
+        // Placeholder: Return zero jerk for now
+        MPCOutput {
+            jerk: 0.0,
+            predicted_position: current_state.position,
+            solve_time_us: 0,
+            status: MPCSolverStatus::Uninitialized,
+        }
+    }
+
+    /// Get average solve time
+    pub fn average_solve_time_us(&self) -> u32 {
+        if self.solve_count == 0 {
+            0
+        } else {
+            (self.total_solve_time_us / self.solve_count as u64) as u32
+        }
+    }
+
+    /// Reset controller state
+    pub fn reset(&mut self) {
+        self.last_solution = None;
+        self.solve_count = 0;
+        self.total_solve_time_us = 0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mpc_config_default() {
+        let config = MPCConfig::default();
+        assert_eq!(config.horizon, 25);
+        assert_eq!(config.dt, 0.001);
+    }
+
+    #[test]
+    fn test_mpc_state_conversion() {
+        let state = MPCState {
+            position: 1.57,
+            velocity: 0.5,
+            acceleration: 0.1,
+        };
+
+        let (pos, vel, acc) = state.to_fixed();
+        let state2 = MPCState::from_fixed(pos, vel, acc);
+
+        assert!((state2.position - state.position).abs() < 0.01);
+        assert!((state2.velocity - state.velocity).abs() < 0.01);
+        assert!((state2.acceleration - state.acceleration).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_mpc_controller_creation() {
+        let config = MPCConfig::default();
+        let controller = MPCController::from_identified_model(config);
+
+        assert_eq!(controller.config.horizon, 25);
+        assert_eq!(controller.average_solve_time_us(), 0);
+    }
+}
