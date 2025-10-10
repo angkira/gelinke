@@ -11,8 +11,8 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any
 
-# Add renode/tests to path
-sys.path.insert(0, str(Path(__file__).parent / "renode" / "tests"))
+# Add demo_visualization from scripts/demos
+sys.path.insert(0, str(Path(__file__).parent.parent / "demos"))
 
 from demo_visualization import (
     PIDController,
@@ -191,8 +191,9 @@ def simulate_motion_comparison(
     # Additional phase-specific analysis
     accel_phase_idx = np.where(time_arr < t_accel)[0]
     decel_phase_start = t_accel + t_coast
-    decel_phase_idx = np.where((time_arr >= decel_phase_start) &
-                                (time_arr < decel_phase_start + t_decel))[0]
+    decel_phase_idx = np.where(
+        (time_arr >= decel_phase_start) & (time_arr < decel_phase_start + t_decel)
+    )[0]
     settling_phase_idx = np.where(time_arr >= decel_phase_start + t_decel)[0]
 
     # Phase metrics (using tracking error = actual - target)
@@ -200,7 +201,9 @@ def simulate_motion_comparison(
         accel_phase_rms = np.rad2deg(
             np.sqrt(np.mean(tracking_error_arr[accel_phase_idx] ** 2))
         )
-        accel_phase_max = np.rad2deg(np.max(np.abs(tracking_error_arr[accel_phase_idx])))
+        accel_phase_max = np.rad2deg(
+            np.max(np.abs(tracking_error_arr[accel_phase_idx]))
+        )
         accel_vel_rms = np.sqrt(np.mean(vel_error_arr[accel_phase_idx] ** 2))
     else:
         accel_phase_rms = 0.0
@@ -211,7 +214,9 @@ def simulate_motion_comparison(
         decel_phase_rms = np.rad2deg(
             np.sqrt(np.mean(tracking_error_arr[decel_phase_idx] ** 2))
         )
-        decel_phase_max = np.rad2deg(np.max(np.abs(tracking_error_arr[decel_phase_idx])))
+        decel_phase_max = np.rad2deg(
+            np.max(np.abs(tracking_error_arr[decel_phase_idx]))
+        )
     else:
         decel_phase_rms = 0.0
         decel_phase_max = 0.0
@@ -221,25 +226,29 @@ def simulate_motion_comparison(
         settling_rms = np.rad2deg(
             np.sqrt(np.mean(tracking_error_arr[settling_phase_idx] ** 2))
         )
-        settling_max = np.rad2deg(np.max(np.abs(tracking_error_arr[settling_phase_idx])))
+        settling_max = np.rad2deg(
+            np.max(np.abs(tracking_error_arr[settling_phase_idx]))
+        )
     else:
         settling_mean = 0.0
         settling_rms = 0.0
         settling_max = 0.0
 
     # Add phase metrics
-    metrics.update({
-        "accel_phase_rms_deg": accel_phase_rms,
-        "accel_phase_max_deg": accel_phase_max,
-        "accel_vel_rms": accel_vel_rms,
-        "decel_phase_rms_deg": decel_phase_rms,
-        "decel_phase_max_deg": decel_phase_max,
-        "settling_mean_deg": settling_mean,
-        "settling_rms_deg": settling_rms,
-        "settling_max_deg": settling_max,
-        "trajectory_type": trajectory_type,
-        "max_jerk": max_jerk if trajectory_type == "scurve" else float("inf"),
-    })
+    metrics.update(
+        {
+            "accel_phase_rms_deg": accel_phase_rms,
+            "accel_phase_max_deg": accel_phase_max,
+            "accel_vel_rms": accel_vel_rms,
+            "decel_phase_rms_deg": decel_phase_rms,
+            "decel_phase_max_deg": decel_phase_max,
+            "settling_mean_deg": settling_mean,
+            "settling_rms_deg": settling_rms,
+            "settling_max_deg": settling_max,
+            "trajectory_type": trajectory_type,
+            "max_jerk": max_jerk if trajectory_type == "scurve" else float("inf"),
+        }
+    )
 
     return metrics
 
@@ -292,7 +301,9 @@ def compare_trajectories():
     print("COMPARISON RESULTS")
     print("=" * 80)
     print()
-    print(f"{'Configuration':<40} {'RMS°':>8} {'Max°':>8} {'OS%':>6} {'Accel°':>8} {'Decel°':>8}")
+    print(
+        f"{'Configuration':<40} {'RMS°':>8} {'Max°':>8} {'OS%':>6} {'Accel°':>8} {'Decel°':>8}"
+    )
     print("-" * 80)
 
     baseline = results[0]
@@ -300,7 +311,11 @@ def compare_trajectories():
     for r in results:
         rms_improvement = ""
         if r != baseline and baseline["rms_error_deg"] > 0:
-            improvement = (baseline["rms_error_deg"] - r["rms_error_deg"]) / baseline["rms_error_deg"] * 100
+            improvement = (
+                (baseline["rms_error_deg"] - r["rms_error_deg"])
+                / baseline["rms_error_deg"]
+                * 100
+            )
             if improvement > 0:
                 rms_improvement = f" (-{improvement:.1f}%)"
             else:
@@ -336,23 +351,35 @@ def compare_trajectories():
     print()
 
     print(f"Performance vs Baseline (Trapezoidal):")
-    print(f"  RMS Error:     {baseline['rms_error_deg']:.3f}° → {best['rms_error_deg']:.3f}° "
-          f"({(baseline['rms_error_deg'] - best['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}% improvement)")
-    print(f"  Max Error:     {baseline['max_error_deg']:.3f}° → {best['max_error_deg']:.3f}° "
-          f"({(baseline['max_error_deg'] - best['max_error_deg']) / baseline['max_error_deg'] * 100:.1f}% improvement)")
-    print(f"  Overshoot:     {baseline['overshoot_percent']:.1f}% → {best['overshoot_percent']:.1f}%")
+    print(
+        f"  RMS Error:     {baseline['rms_error_deg']:.3f}° → {best['rms_error_deg']:.3f}° "
+        f"({(baseline['rms_error_deg'] - best['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}% improvement)"
+    )
+    print(
+        f"  Max Error:     {baseline['max_error_deg']:.3f}° → {best['max_error_deg']:.3f}° "
+        f"({(baseline['max_error_deg'] - best['max_error_deg']) / baseline['max_error_deg'] * 100:.1f}% improvement)"
+    )
+    print(
+        f"  Overshoot:     {baseline['overshoot_percent']:.1f}% → {best['overshoot_percent']:.1f}%"
+    )
     print()
 
     print("Phase-by-Phase Breakdown (Best Configuration):")
-    print(f"  Acceleration Phase:  RMS = {best['accel_phase_rms_deg']:.3f}°, Max = {best['accel_phase_max_deg']:.3f}°")
-    print(f"  Deceleration Phase:  RMS = {best['decel_phase_rms_deg']:.3f}°, Max = {best['decel_phase_max_deg']:.3f}°")
-    print(f"  Settling Phase:      RMS = {best['settling_rms_deg']:.3f}°, Mean = {best['settling_mean_deg']:.3f}°")
+    print(
+        f"  Acceleration Phase:  RMS = {best['accel_phase_rms_deg']:.3f}°, Max = {best['accel_phase_max_deg']:.3f}°"
+    )
+    print(
+        f"  Deceleration Phase:  RMS = {best['decel_phase_rms_deg']:.3f}°, Max = {best['decel_phase_max_deg']:.3f}°"
+    )
+    print(
+        f"  Settling Phase:      RMS = {best['settling_rms_deg']:.3f}°, Mean = {best['settling_mean_deg']:.3f}°"
+    )
     print()
 
     # Goal assessment
     print("Goal Achievement:")
     print(f"  Target: RMS < 1° → Current: {best['rms_error_deg']:.3f}° ", end="")
-    if best['rms_error_deg'] < 1.0:
+    if best["rms_error_deg"] < 1.0:
         print("✅ ACHIEVED!")
     else:
         print(f"❌ Not yet (need {best['rms_error_deg'] - 1.0:.3f}° more)")
@@ -364,8 +391,12 @@ def compare_trajectories():
     print()
 
     if best["trajectory_type"] == "scurve":
-        print(f"✅ Use S-curve trajectory with max_jerk = {best['max_jerk']:.0f} rad/s³")
-        print(f"   RMS improvement: {(baseline['rms_error_deg'] - best['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}%")
+        print(
+            f"✅ Use S-curve trajectory with max_jerk = {best['max_jerk']:.0f} rad/s³"
+        )
+        print(
+            f"   RMS improvement: {(baseline['rms_error_deg'] - best['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}%"
+        )
         print(f"   Expected RMS error: {best['rms_error_deg']:.3f}°")
     else:
         print("⚠️  S-curve did not improve performance significantly.")

@@ -10,8 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# Add current directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add demo_visualization from scripts/demos
+sys.path.insert(0, str(Path(__file__).parent / "scripts" / "demos"))
 
 from demo_visualization import (
     InputShaper,
@@ -50,11 +50,15 @@ def simulate_flexible_system(
     for i in range(1, len(time)):
         # Second-order dynamics
         # x'' + 2*zeta*omega_n*x' + omega_n^2*x = omega_n^2*u
-        accel = omega_n**2 * command[i-1] - 2 * zeta * omega_n * velocity[i-1] - omega_n**2 * position[i-1]
+        accel = (
+            omega_n**2 * command[i - 1]
+            - 2 * zeta * omega_n * velocity[i - 1]
+            - omega_n**2 * position[i - 1]
+        )
 
         # Euler integration
-        velocity[i] = velocity[i-1] + accel * dt
-        position[i] = position[i-1] + velocity[i] * dt
+        velocity[i] = velocity[i - 1] + accel * dt
+        position[i] = position[i - 1] + velocity[i] * dt
         acceleration[i] = accel
 
     return position
@@ -69,7 +73,7 @@ def test_input_shaping_comparison():
 
     # System parameters (flexible mode)
     omega_n = 15.0  # 15 rad/s = 2.39 Hz natural frequency
-    zeta = 0.05     # 5% damping (lightly damped, lots of vibration)
+    zeta = 0.05  # 5% damping (lightly damped, lots of vibration)
 
     print(f"Flexible System:")
     print(f"  Natural frequency: {omega_n:.1f} rad/s ({omega_n/(2*np.pi):.2f} Hz)")
@@ -91,9 +95,15 @@ def test_input_shaping_comparison():
     ei_shaper = EIShaper(omega_n, zeta)
 
     print(f"Input Shapers:")
-    print(f"  ZV:  {len(zv_shaper.impulses)} impulses, delay = {zv_shaper.get_delay():.3f} s")
-    print(f"  ZVD: {len(zvd_shaper.impulses)} impulses, delay = {zvd_shaper.get_delay():.3f} s")
-    print(f"  EI:  {len(ei_shaper.impulses)} impulses, delay = {ei_shaper.get_delay():.3f} s")
+    print(
+        f"  ZV:  {len(zv_shaper.impulses)} impulses, delay = {zv_shaper.get_delay():.3f} s"
+    )
+    print(
+        f"  ZVD: {len(zvd_shaper.impulses)} impulses, delay = {zvd_shaper.get_delay():.3f} s"
+    )
+    print(
+        f"  EI:  {len(ei_shaper.impulses)} impulses, delay = {ei_shaper.get_delay():.3f} s"
+    )
     print()
 
     # Apply shapers
@@ -158,47 +168,56 @@ def test_input_shaping_comparison():
 
     # Plot 1: Shaped commands
     ax1 = axes[0]
-    ax1.plot(time, command_raw, 'k--', label='Unshaped', linewidth=1, alpha=0.5)
-    ax1.plot(time, command_zv, 'b-', label='ZV', linewidth=2, alpha=0.7)
-    ax1.plot(time, command_zvd, 'g-', label='ZVD', linewidth=2, alpha=0.7)
-    ax1.plot(time, command_ei, 'r-', label='EI', linewidth=2, alpha=0.7)
-    ax1.set_ylabel('Command', fontsize=12)
-    ax1.legend(loc='upper right')
+    ax1.plot(time, command_raw, "k--", label="Unshaped", linewidth=1, alpha=0.5)
+    ax1.plot(time, command_zv, "b-", label="ZV", linewidth=2, alpha=0.7)
+    ax1.plot(time, command_zvd, "g-", label="ZVD", linewidth=2, alpha=0.7)
+    ax1.plot(time, command_ei, "r-", label="EI", linewidth=2, alpha=0.7)
+    ax1.set_ylabel("Command", fontsize=12)
+    ax1.legend(loc="upper right")
     ax1.grid(True, alpha=0.3)
-    ax1.set_title('Input Shaping for Vibration Suppression', fontsize=14, fontweight='bold')
+    ax1.set_title(
+        "Input Shaping for Vibration Suppression", fontsize=14, fontweight="bold"
+    )
     ax1.set_xlim(0, 0.8)
 
     # Plot 2: Position responses
     ax2 = axes[1]
-    ax2.plot(time, response_unshaped, 'k-', label='Unshaped', linewidth=2, alpha=0.5)
-    ax2.plot(time, response_zv, 'b-', label='ZV', linewidth=2, alpha=0.7)
-    ax2.plot(time, response_zvd, 'g-', label='ZVD', linewidth=2, alpha=0.7)
-    ax2.plot(time, response_ei, 'r-', label='EI', linewidth=2, alpha=0.7)
-    ax2.axhline(1.0, color='gray', linestyle='--', alpha=0.3)
-    ax2.set_ylabel('Position', fontsize=12)
-    ax2.legend(loc='lower right')
+    ax2.plot(time, response_unshaped, "k-", label="Unshaped", linewidth=2, alpha=0.5)
+    ax2.plot(time, response_zv, "b-", label="ZV", linewidth=2, alpha=0.7)
+    ax2.plot(time, response_zvd, "g-", label="ZVD", linewidth=2, alpha=0.7)
+    ax2.plot(time, response_ei, "r-", label="EI", linewidth=2, alpha=0.7)
+    ax2.axhline(1.0, color="gray", linestyle="--", alpha=0.3)
+    ax2.set_ylabel("Position", fontsize=12)
+    ax2.legend(loc="lower right")
     ax2.grid(True, alpha=0.3)
 
     # Plot 3: Residual vibration (zoomed)
     ax3 = axes[2]
     final_val = np.mean(response_unshaped[-100:])
-    ax3.plot(time, response_unshaped - final_val, 'k-', label='Unshaped', linewidth=2, alpha=0.5)
-    ax3.plot(time, response_zv - final_val, 'b-', label='ZV', linewidth=2, alpha=0.7)
-    ax3.plot(time, response_zvd - final_val, 'g-', label='ZVD', linewidth=2, alpha=0.7)
-    ax3.plot(time, response_ei - final_val, 'r-', label='EI', linewidth=2, alpha=0.7)
-    ax3.axhline(0, color='gray', linestyle='--', alpha=0.3)
-    ax3.set_xlabel('Time (s)', fontsize=12)
-    ax3.set_ylabel('Vibration Error', fontsize=12)
-    ax3.legend(loc='upper right')
+    ax3.plot(
+        time,
+        response_unshaped - final_val,
+        "k-",
+        label="Unshaped",
+        linewidth=2,
+        alpha=0.5,
+    )
+    ax3.plot(time, response_zv - final_val, "b-", label="ZV", linewidth=2, alpha=0.7)
+    ax3.plot(time, response_zvd - final_val, "g-", label="ZVD", linewidth=2, alpha=0.7)
+    ax3.plot(time, response_ei - final_val, "r-", label="EI", linewidth=2, alpha=0.7)
+    ax3.axhline(0, color="gray", linestyle="--", alpha=0.3)
+    ax3.set_xlabel("Time (s)", fontsize=12)
+    ax3.set_ylabel("Vibration Error", fontsize=12)
+    ax3.legend(loc="upper right")
     ax3.grid(True, alpha=0.3)
     ax3.set_xlim(0.5, duration)
 
     plt.tight_layout()
 
     # Save plot
-    output_file = 'demo_results/input_shaping_comparison.png'
-    Path('demo_results').mkdir(exist_ok=True)
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    output_file = "demo_results/input_shaping_comparison.png"
+    Path("demo_results").mkdir(exist_ok=True)
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     print(f"📊 Plot saved to: {output_file}")
     print()
 
@@ -249,12 +268,20 @@ def test_frequency_robustness():
         zvd_shaper.reset()
         ei_shaper.reset()
 
-        command_zv = np.array([zv_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)])
-        command_zvd = np.array([zvd_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)])
-        command_ei = np.array([ei_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)])
+        command_zv = np.array(
+            [zv_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)]
+        )
+        command_zvd = np.array(
+            [zvd_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)]
+        )
+        command_ei = np.array(
+            [ei_shaper.shape(cmd, t) for cmd, t in zip(command_raw, time)]
+        )
 
         # Simulate with actual frequency
-        response_unshaped = simulate_flexible_system(command_raw, time, omega_test, zeta)
+        response_unshaped = simulate_flexible_system(
+            command_raw, time, omega_test, zeta
+        )
         response_zv = simulate_flexible_system(command_zv, time, omega_test, zeta)
         response_zvd = simulate_flexible_system(command_zvd, time, omega_test, zeta)
         response_ei = simulate_flexible_system(command_ei, time, omega_test, zeta)
@@ -280,22 +307,49 @@ def test_frequency_robustness():
 
     # Plot robustness
     plt.figure(figsize=(10, 6))
-    plt.plot(freq_errors * 100, vib_zv_arr, 'b-', label='ZV (±25% error)', linewidth=2, marker='o')
-    plt.plot(freq_errors * 100, vib_zvd_arr, 'g-', label='ZVD (±50% error)', linewidth=2, marker='s')
-    plt.plot(freq_errors * 100, vib_ei_arr, 'r-', label='EI (±75% error)', linewidth=2, marker='^')
-    plt.axhline(5, color='gray', linestyle='--', alpha=0.5, label='5% vibration threshold')
-    plt.axvline(0, color='k', linestyle='--', alpha=0.3)
-    plt.xlabel('Frequency Error (%)', fontsize=12)
-    plt.ylabel('Residual Vibration (% of unshaped)', fontsize=12)
-    plt.title('Input Shaper Robustness to Frequency Modeling Errors', fontsize=14, fontweight='bold')
+    plt.plot(
+        freq_errors * 100,
+        vib_zv_arr,
+        "b-",
+        label="ZV (±25% error)",
+        linewidth=2,
+        marker="o",
+    )
+    plt.plot(
+        freq_errors * 100,
+        vib_zvd_arr,
+        "g-",
+        label="ZVD (±50% error)",
+        linewidth=2,
+        marker="s",
+    )
+    plt.plot(
+        freq_errors * 100,
+        vib_ei_arr,
+        "r-",
+        label="EI (±75% error)",
+        linewidth=2,
+        marker="^",
+    )
+    plt.axhline(
+        5, color="gray", linestyle="--", alpha=0.5, label="5% vibration threshold"
+    )
+    plt.axvline(0, color="k", linestyle="--", alpha=0.3)
+    plt.xlabel("Frequency Error (%)", fontsize=12)
+    plt.ylabel("Residual Vibration (% of unshaped)", fontsize=12)
+    plt.title(
+        "Input Shaper Robustness to Frequency Modeling Errors",
+        fontsize=14,
+        fontweight="bold",
+    )
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xlim(-50, 50)
     plt.ylim(0, 30)
 
     # Save
-    output_file = 'demo_results/input_shaping_robustness.png'
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    output_file = "demo_results/input_shaping_robustness.png"
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     print(f"📊 Robustness plot saved to: {output_file}")
     print()
 
@@ -340,9 +394,7 @@ def test_resonance_detection():
     response = simulate_flexible_system(command, time, omega_true, zeta_true)
 
     # Detect resonance
-    omega_detected, zeta_detected = detect_resonance_frequency(
-        time, response, 1.0, dt
-    )
+    omega_detected, zeta_detected = detect_resonance_frequency(time, response, 1.0, dt)
 
     print(f"True system:")
     print(f"  ωn = {omega_true:.2f} rad/s ({omega_true/(2*np.pi):.3f} Hz)")
@@ -354,7 +406,9 @@ def test_resonance_detection():
     print()
 
     error_freq = abs(omega_detected - omega_true) / omega_true * 100
-    error_zeta = abs(zeta_detected - zeta_true) / zeta_true * 100 if zeta_true > 0 else 0
+    error_zeta = (
+        abs(zeta_detected - zeta_true) / zeta_true * 100 if zeta_true > 0 else 0
+    )
 
     print(f"Errors:")
     print(f"  Frequency error: {error_freq:.1f}%")
@@ -386,8 +440,12 @@ def main():
     print()
     print("🎯 Key Results:")
     print(f"  1. ZV shaper:  {(1-vib_zv/vib_unshaped)*100:.1f}% vibration reduction")
-    print(f"  2. ZVD shaper: {(1-vib_zvd/vib_unshaped)*100:.1f}% vibration reduction (more robust)")
-    print(f"  3. EI shaper:  {(1-vib_ei/vib_unshaped)*100:.1f}% vibration reduction (most robust)")
+    print(
+        f"  2. ZVD shaper: {(1-vib_zvd/vib_unshaped)*100:.1f}% vibration reduction (more robust)"
+    )
+    print(
+        f"  3. EI shaper:  {(1-vib_ei/vib_unshaped)*100:.1f}% vibration reduction (most robust)"
+    )
     print()
     print("📊 Plots saved to demo_results/:")
     print("  - input_shaping_comparison.png")
@@ -401,5 +459,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -5,11 +5,7 @@ Optimize Controller Gains for S-curve Trajectory
 Test different controller gains specifically optimized for S-curve trajectories.
 """
 
-import sys
 import numpy as np
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "renode" / "tests"))
 
 from compare_trajectories import simulate_motion_comparison
 
@@ -100,7 +96,11 @@ def optimize_scurve_controller():
 
     for r in results:
         m = r["metrics"]
-        improvement = (baseline["rms_error_deg"] - m["rms_error_deg"]) / baseline["rms_error_deg"] * 100
+        improvement = (
+            (baseline["rms_error_deg"] - m["rms_error_deg"])
+            / baseline["rms_error_deg"]
+            * 100
+        )
 
         status = ""
         if m["rms_error_deg"] < 1.0:
@@ -143,8 +143,10 @@ def optimize_scurve_controller():
         print(f"  Settling RMS:     {m['settling_rms_deg']:.3f}°")
         print()
         print("Improvement from Baseline:")
-        print(f"  RMS: {baseline['rms_error_deg']:.3f}° → {m['rms_error_deg']:.3f}° "
-              f"({(baseline['rms_error_deg'] - m['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}% better)")
+        print(
+            f"  RMS: {baseline['rms_error_deg']:.3f}° → {m['rms_error_deg']:.3f}° "
+            f"({(baseline['rms_error_deg'] - m['rms_error_deg']) / baseline['rms_error_deg'] * 100:.1f}% better)"
+        )
         print()
 
         if m["rms_error_deg"] < 1.0:

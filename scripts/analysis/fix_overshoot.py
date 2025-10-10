@@ -6,11 +6,6 @@ The system overshoots by 4.3° due to excessive ki_vel=3.5.
 Test configurations with reduced integral gain and increased damping.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "renode" / "tests"))
-
 from compare_trajectories import simulate_motion_comparison
 
 
@@ -19,7 +14,9 @@ def fix_overshoot():
     print("=" * 80)
     print("FIX OVERSHOOT PROBLEM")
     print("=" * 80)
-    print("\nRoot Cause: System overshoots target by 4.3° due to ki_vel=3.5 being too high")
+    print(
+        "\nRoot Cause: System overshoots target by 4.3° due to ki_vel=3.5 being too high"
+    )
     print("Solutions: Reduce ki_vel OR increase kd_vel OR both\n")
 
     configs = [
@@ -109,7 +106,9 @@ def fix_overshoot():
     print("RESULTS")
     print("=" * 80)
     print()
-    print(f"{'Configuration':<35} {'RMS°':>8} {'OS%':>6} {'Settle°':>9} {'SS Bias°':>10}")
+    print(
+        f"{'Configuration':<35} {'RMS°':>8} {'OS%':>6} {'Settle°':>9} {'SS Bias°':>10}"
+    )
     print("-" * 80)
 
     baseline = results[0]["metrics"]
@@ -181,7 +180,9 @@ def fix_overshoot():
         print("=" * 80)
     else:
         gap = m["rms_error_deg"] - 1.0
-        print(f"📊 Gap to <1° target: {gap:.3f}° ({gap / m['rms_error_deg'] * 100:.1f}% of current RMS)")
+        print(
+            f"📊 Gap to <1° target: {gap:.3f}° ({gap / m['rms_error_deg'] * 100:.1f}% of current RMS)"
+        )
 
     print()
     print("=" * 80)

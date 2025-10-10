@@ -8,7 +8,7 @@ Compares S-curve performance with and without position integral gain.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "renode" / "tests"))
+sys.path.insert(0, str(Path(__file__).parent / "scripts" / "analysis"))
 
 from compare_trajectories import simulate_motion_comparison
 
@@ -86,7 +86,9 @@ def test_position_integral():
         print(f"  RMS:      {metrics['rms_error_deg']:.3f}°")
         print(f"  Max:      {metrics['max_error_deg']:.3f}°")
         print(f"  Overshoot: {metrics['overshoot_percent']:.1f}%")
-        print(f"  Settling:  {metrics['settling_rms_deg']:.3f}° RMS, {metrics['settling_mean_deg']:.3f}° mean")
+        print(
+            f"  Settling:  {metrics['settling_rms_deg']:.3f}° RMS, {metrics['settling_mean_deg']:.3f}° mean"
+        )
         print()
 
     # Comparison table
@@ -94,14 +96,20 @@ def test_position_integral():
     print("RESULTS")
     print("=" * 80)
     print()
-    print(f"{'Configuration':<30} {'RMS°':>8} {'Max°':>8} {'OS%':>6} {'Settle°':>9} {'Status':>10}")
+    print(
+        f"{'Configuration':<30} {'RMS°':>8} {'Max°':>8} {'OS%':>6} {'Settle°':>9} {'Status':>10}"
+    )
     print("-" * 80)
 
     baseline = results[0]["metrics"]
 
     for r in results:
         m = r["metrics"]
-        improvement = (baseline["rms_error_deg"] - m["rms_error_deg"]) / baseline["rms_error_deg"] * 100
+        improvement = (
+            (baseline["rms_error_deg"] - m["rms_error_deg"])
+            / baseline["rms_error_deg"]
+            * 100
+        )
 
         status = ""
         if m["rms_error_deg"] < 1.0:
@@ -160,7 +168,11 @@ def test_position_integral():
         print(f"  Overshoot:        {m['overshoot_percent']:.1f}%")
         print()
 
-        improvement_vs_baseline = (baseline["rms_error_deg"] - m["rms_error_deg"]) / baseline["rms_error_deg"] * 100
+        improvement_vs_baseline = (
+            (baseline["rms_error_deg"] - m["rms_error_deg"])
+            / baseline["rms_error_deg"]
+            * 100
+        )
         improvement_vs_trap = (3.567 - m["rms_error_deg"]) / 3.567 * 100
         improvement_vs_original = (61.0 - m["rms_error_deg"]) / 61.0 * 100
 

@@ -155,4 +155,6 @@ if __name__ == "__main__":
     if Path(json_file).exists():
         results = analyze_tracking_error(json_file)
     else:
-        print(f"Error: {json_file} not found. Run demo_visualization.py first.")
+        print(
+            f"Error: {json_file} not found. Run scripts/demos/demo_visualization.py first."
+        )

@@ -121,7 +121,9 @@ class MPCController:
 
         # Dynamics constraints
         for k in range(N):
-            constraints.append(self.x[:, k + 1] == self.A @ self.x[:, k] + self.B @ self.u[:, k])
+            constraints.append(
+                self.x[:, k + 1] == self.A @ self.x[:, k] + self.B @ self.u[:, k]
+            )
 
         # State constraints (velocity and acceleration bounds)
         for k in range(N + 1):
@@ -166,7 +168,13 @@ class MPCController:
 
         # Solve optimization
         try:
-            self.problem.solve(solver=cp.OSQP, warm_start=True, verbose=verbose, eps_abs=1e-4, eps_rel=1e-4)
+            self.problem.solve(
+                solver=cp.OSQP,
+                warm_start=True,
+                verbose=verbose,
+                eps_abs=1e-4,
+                eps_rel=1e-4,
+            )
         except Exception as e:
             print(f"MPC solve failed: {e}")
             return 0.0, {
@@ -190,7 +198,9 @@ class MPCController:
             }
 
         # Extract solution
-        u_optimal_seq = self.u.value.flatten() if self.u.value is not None else np.zeros(self.N)
+        u_optimal_seq = (
+            self.u.value.flatten() if self.u.value is not None else np.zeros(self.N)
+        )
         x_predicted = self.x.value if self.x.value is not None else None
 
         # Return first control input (receding horizon principle)
@@ -365,7 +375,8 @@ def main():
     # Import S-curve generator (do it once)
     import sys
     from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "demos"))
     from demo_visualization import generate_scurve_trajectory
 
     # Define S-curve trajectory
@@ -376,14 +387,19 @@ def main():
         max_accel = 5.0
         max_jerk = 100.0
 
-        pos, vel, acc, jerk = generate_scurve_trajectory(t, target, max_vel, max_accel, max_jerk)
+        pos, vel, acc, jerk = generate_scurve_trajectory(
+            t, target, max_vel, max_accel, max_jerk
+        )
         return pos, vel, acc
 
     # Simulate MPC tracking
     print("\nRunning MPC simulation...")
     results = simulate_mpc_tracking(
-        mpc=mpc, trajectory_func=scurve_trajectory, duration=0.6,  # 600ms (covers full trajectory)
-        dt=0.0001, x0=np.array([0.0, 0.0, 0.0])
+        mpc=mpc,
+        trajectory_func=scurve_trajectory,
+        duration=0.6,  # 600ms (covers full trajectory)
+        dt=0.0001,
+        x0=np.array([0.0, 0.0, 0.0]),
     )
 
     # Get MPC statistics
@@ -406,7 +422,9 @@ def main():
     if results["rms_error"] < np.deg2rad(1.0):
         print("\n🎯 SUCCESS: MPC achieved <1° RMS target!")
     else:
-        print(f"\n⚠️  Close: Need {np.rad2deg(results['rms_error']) - 1.0:.2f}° more improvement")
+        print(
+            f"\n⚠️  Close: Need {np.rad2deg(results['rms_error']) - 1.0:.2f}° more improvement"
+        )
 
     # Plot results
     try:

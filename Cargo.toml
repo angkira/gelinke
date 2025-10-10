@@ -26,6 +26,8 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 default = []
 # Mock peripherals for Renode testing (avoids async-wait blocks)
 renode-mock = []
+# Enable Model Predictive Control (experimental, adds ~75KB flash + 15-20KB RAM)
+mpc = []
 
 [profile.release]
 opt-level = "z"  # Optimize for size

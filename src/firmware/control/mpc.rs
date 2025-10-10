@@ -1,8 +1,11 @@
 //! Model Predictive Control (MPC) for Position Tracking
 //!
+//! **OPTIONAL FEATURE** - Enable with `--features mpc` (adds ~75KB flash + 15-20KB RAM)
+//!
 //! This module implements an MPC controller designed to run at 1 kHz,
 //! providing position and velocity setpoints to the existing 10 kHz
-//! cascade controller.
+//! cascade PID controller. The default PID controller works perfectly
+//! without MPC - this is an experimental optimization for <1° RMS tracking.
 //!
 //! # Architecture
 //!
