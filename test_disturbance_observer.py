@@ -139,7 +139,7 @@ def test_observer_vs_baseline():
 
         if baseline_learned:
             i_q_external = i_q - i_q_baseline
-            load_baseline_raw = kt * i_q_external
+            load_baseline_raw = motor_params.kt * i_q_external
 
             # Low-pass filter (same as observer)
             if i == 0 or not hasattr(test_observer_vs_baseline, "load_baseline"):
