@@ -7,6 +7,7 @@ Demonstrates the difference between:
 2. Dynamic model (CORRECT - realistic physics)
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from motor_model import MotorSimulator, MotorParameters
@@ -150,7 +151,10 @@ def main():
     axes[1].set_title("Velocity Response Comparison")
 
     plt.tight_layout()
-    output_file = "../../demo_results/kinematic_vs_dynamic.png"
+    # Determine output path relative to script location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    output_file = os.path.join(project_root, "demo_results", "kinematic_vs_dynamic.png")
     plt.savefig(output_file, dpi=150, bbox_inches="tight")
     print(f"\n📊 Plot saved: {output_file}")
 
