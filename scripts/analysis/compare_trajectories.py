@@ -20,6 +20,10 @@ from demo_visualization import (
     generate_scurve_trajectory,
 )
 
+# Add physics model
+sys.path.insert(0, str(Path(__file__).parent.parent / "physics"))
+from motor_model import MotorDynamics, MotorParameters
+
 
 def simulate_motion_comparison(
     trajectory_type: str,
@@ -71,10 +75,17 @@ def simulate_motion_comparison(
     duration = t_accel + t_coast + t_decel + 0.2  # Add settling time
     n_samples = int(duration / dt)
 
-    # Initialize state
-    position = 0.0
-    velocity = 0.0
-    pos_integral = 0.0  # Position integral term
+    # Initialize motor dynamics with realistic physics
+    motor_params = MotorParameters(
+        J=0.001,  # kg·m² - Rotor inertia
+        kt=0.15,  # Nm/A - Torque constant
+        b=0.0005,  # Nm·s/rad - Viscous damping
+    )
+    motor = MotorDynamics(motor_params)
+    motor.reset(position=0.0, velocity=0.0)
+
+    # Position integral term
+    pos_integral = 0.0
 
     # Initialize controller
     vel_controller = PIDController(
@@ -130,7 +141,7 @@ def simulate_motion_comparison(
                 target_accel = 0.0
 
         # Controller (cascade with feedforward)
-        pos_error = target_pos - position
+        pos_error = target_pos - motor.position
 
         # Outer loop (position -> velocity) with PI control
         pos_integral += pos_error * dt
@@ -143,18 +154,25 @@ def simulate_motion_comparison(
         target_vel_combined = kff_vel * target_vel + target_vel_from_pos
 
         # Inner loop (velocity -> acceleration)
-        vel_error = target_vel_combined - velocity
+        vel_error = target_vel_combined - motor.velocity
         accel_fb = vel_controller.update(vel_error, dt, feedforward=0.0)
 
         # Add acceleration feedforward + friction compensation
-        accel_ff = kff_accel * target_accel + kff_friction * velocity
+        accel_ff = kff_accel * target_accel + kff_friction * motor.velocity
         accel = accel_fb + accel_ff
 
         # Apply saturation
         accel = np.clip(accel, -max_accel, max_accel)
-        velocity += accel * dt
-        velocity = np.clip(velocity, -max_vel, max_vel)
-        position += velocity * dt
+
+        # Convert desired acceleration to motor current
+        desired_torque = motor_params.J * accel
+        i_q = desired_torque / motor_params.kt
+        i_q = np.clip(i_q, -10.0, 10.0)  # Current limit
+
+        # Update motor dynamics with realistic physics
+        state = motor.update(i_q, external_load=0.0, dt=dt)
+        position = state["position"]
+        velocity = state["velocity"]
 
         # Store data
         position_arr.append(position)

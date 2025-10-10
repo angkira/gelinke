@@ -8,7 +8,11 @@ from pathlib import Path
 
 # Add demo_visualization module from scripts/demos
 sys.path.insert(0, str(Path(__file__).parent / "scripts" / "demos"))
-from demo_visualization import DisturbanceObserver, FrictionModel
+from demo_visualization import DisturbanceObserver
+
+# Add physics model
+sys.path.insert(0, str(Path(__file__).parent / "scripts" / "physics"))
+from motor_model import MotorDynamics, MotorParameters, FrictionModel as PhysicsFrictionModel
 
 
 def test_observer_vs_baseline():
@@ -25,23 +29,32 @@ def test_observer_vs_baseline():
     n_samples = int(duration / dt)
 
     # Motor parameters
-    J = 0.001  # kg·m² - Inertia
-    b = 0.0005  # Nm·s/rad - Damping
-    kt = 0.15  # Nm/A - Torque constant
+    motor_params = MotorParameters(
+        J=0.001,  # kg·m² - Inertia
+        b=0.0005,  # Nm·s/rad - Damping
+        kt=0.15,  # Nm/A - Torque constant
+        tau_coulomb=0.02,
+        tau_stribeck=0.01,
+        v_stribeck=0.1,
+        b_viscous=0.001,
+    )
+    motor = MotorDynamics(motor_params)
+    motor.reset(position=0.0, velocity=0.0)
 
-    # Initialize observer
-    friction_model = FrictionModel(
+    # Initialize observer (uses demo_visualization's FrictionModel and DisturbanceObserver)
+    from demo_visualization import FrictionModel as DemoFrictionModel
+    friction_model_demo = DemoFrictionModel(
         tau_coulomb=0.02,
         b_viscous=0.001,
         v_stribeck=0.1,
         tau_stribeck=0.01,
     )
     observer = DisturbanceObserver(
-        J=J,
-        b=b,
-        kt=kt,
+        J=motor_params.J,
+        b=motor_params.b,
+        kt=motor_params.kt,
         alpha=0.05,
-        friction_model=friction_model,
+        friction_model=friction_model_demo,
         compensate_friction=True,
     )
 
@@ -53,19 +66,16 @@ def test_observer_vs_baseline():
     observer_estimate_arr = []
     baseline_estimate_arr = []
 
-    # State
-    position = 0.0
-    velocity = 0.0
-    temperature = 25.0
-
     # Baseline learning
     i_q_baseline = 0.0
     baseline_samples = []
     baseline_learned = False
 
-    # Simple position controller
+    # Simple position controller (outputs desired acceleration)
     kp = 5.0
     kd = 2.0
+
+    temperature = 25.0
 
     for i in range(n_samples):
         t = i * dt
@@ -99,20 +109,20 @@ def test_observer_vs_baseline():
             target_vel = 0.0
             external_load = 0.0
 
-        # Controller
-        pos_error = target_pos - position
-        accel = kp * pos_error - kd * velocity
+        # Controller (outputs desired acceleration)
+        pos_error = target_pos - motor.position
+        accel = kp * pos_error - kd * motor.velocity
 
-        # Update dynamics
-        velocity += accel * dt
-        position += velocity * dt
+        # Convert desired acceleration to motor current
+        # Controller wants: τ_desired = J * α
+        # Motor needs: i_q = τ_desired / kt
+        desired_torque = motor_params.J * accel
+        i_q = desired_torque / motor_params.kt
 
-        # Calculate friction
-        tau_friction = friction_model.calculate(velocity, temperature)
-
-        # Calculate current (includes motion + friction + external load)
-        tau_total = J * accel + b * velocity + tau_friction + external_load
-        i_q = tau_total / kt
+        # Update motor dynamics with realistic physics
+        state = motor.update(i_q, external_load=external_load, dt=dt, temperature=temperature)
+        position = state["position"]
+        velocity = state["velocity"]
 
         # ===== DISTURBANCE OBSERVER =====
         load_observer = observer.update(velocity, i_q, dt, temperature)
