@@ -245,9 +245,11 @@ def main():
 
         print(f"   ωn={omega_n:.2f} rad/s, ζ={zeta:.3f}")
         print(f"   Overshoot: {metrics['overshoot_percent']:.1f}%")
-        print(f"   Max velocity: {metrics['max_velocity']:.2f} rad/s (violation: {metrics['velocity_violation_percent']:.1f}%)")
+        print(
+            f"   Max velocity: {metrics['max_velocity']:.2f} rad/s (violation: {metrics['velocity_violation_percent']:.1f}%)"
+        )
         print(f"   RMS error: {metrics['rms_error_deg']:.3f}°")
-        if metrics.get('settling_time') is not None:
+        if metrics.get("settling_time") is not None:
             print(f"   Settling time: {metrics['settling_time']:.3f}s")
         else:
             print(f"   Settling time: None")
@@ -256,7 +258,9 @@ def main():
         if metrics["overshoot_percent"] > 10.0:
             print(f"   ❌ Overshoot too high ({metrics['overshoot_percent']:.1f}%)")
         if metrics["velocity_violation_percent"] > 0.0:
-            print(f"   ❌ Velocity violation ({metrics['velocity_violation_percent']:.1f}%)")
+            print(
+                f"   ❌ Velocity violation ({metrics['velocity_violation_percent']:.1f}%)"
+            )
         if metrics["rms_error_deg"] > 10.0:
             print(f"   ⚠️  RMS error high ({metrics['rms_error_deg']:.3f}°)")
         elif metrics["rms_error_deg"] < 1.0:
@@ -273,14 +277,16 @@ def main():
 
     for r in results:
         m = r["metrics"]
-        settle_str = f"{m['settling_time']:.2f}s" if m.get('settling_time') else "N/A"
+        settle_str = f"{m['settling_time']:.2f}s" if m.get("settling_time") else "N/A"
         print(
             f"{r['name']:<40} {r['zeta']:>6.3f} {m['overshoot_percent']:>6.1f} "
             f"{m['max_velocity']:>6.2f} {m['rms_error_deg']:>7.3f} {settle_str:>7}"
         )
 
     # Find best configuration
-    valid_results = [r for r in results if r["metrics"]["velocity_violation_percent"] < 1.0]
+    valid_results = [
+        r for r in results if r["metrics"]["velocity_violation_percent"] < 1.0
+    ]
     if valid_results:
         best = min(valid_results, key=lambda r: r["metrics"]["rms_error_deg"])
     else:
@@ -290,18 +296,22 @@ def main():
     print("🏆 BEST CONFIGURATION")
     print("=" * 80)
     print(f"\nChosen: {best['name']}")
-    print(f"  Gains: kp_pos={best['kp_pos']}, kp_vel={best['kp_vel']}, ki_vel={best['ki_vel']}, kd_vel={best['kd_vel']}")
-    print(f"  Feedforward: kff_vel={best.get('kff_vel', 1.0)}, kff_accel={best.get('kff_accel', 0.0)}")
+    print(
+        f"  Gains: kp_pos={best['kp_pos']}, kp_vel={best['kp_vel']}, ki_vel={best['ki_vel']}, kd_vel={best['kd_vel']}"
+    )
+    print(
+        f"  Feedforward: kff_vel={best.get('kff_vel', 1.0)}, kff_accel={best.get('kff_accel', 0.0)}"
+    )
     print(f"  Overshoot: {best['metrics']['overshoot_percent']:.1f}%")
     print(f"  Max velocity: {best['metrics']['max_velocity']:.2f} rad/s")
     print(f"  RMS error: {best['metrics']['rms_error_deg']:.3f}°")
     print(f"  Damping ratio: ζ = {best['zeta']:.3f}")
 
-    if best['metrics']['rms_error_deg'] < 1.0:
+    if best["metrics"]["rms_error_deg"] < 1.0:
         print("\n✅ EXCELLENT! RMS error < 1° achieved!")
-    elif best['metrics']['rms_error_deg'] < 5.0:
+    elif best["metrics"]["rms_error_deg"] < 5.0:
         print("\n✅ GOOD! RMS error < 5° achieved!")
-    elif best['metrics']['rms_error_deg'] < 10.0:
+    elif best["metrics"]["rms_error_deg"] < 10.0:
         print("\n⚠️  Acceptable. RMS error < 10°")
     else:
         print("\n❌ Poor performance. Consider more aggressive tuning.")
@@ -313,4 +323,3 @@ def main():
 
 if __name__ == "__main__":
     best_config = main()
-
