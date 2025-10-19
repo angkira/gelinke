@@ -136,10 +136,22 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
         }
         ControlMethod::StepDir => {
             // Spawn Step-Dir control loop
-            defmt::info!("[TRACE] About to spawn Step-Dir task...");
-            spawner.spawn(crate::firmware::tasks::step_dir::control_loop()).ok();
-            defmt::info!("[TRACE] ✓ Step-Dir task spawned!");
-            // Note: In future we could add LogMessage::StepDirStarted
+            // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
+            #[cfg(feature = "renode-mock")]
+            {
+                defmt::info!("[TRACE] Spawning MOCK Step-Dir task (1 Hz mode)...");
+                spawner.spawn(crate::firmware::tasks::mock_step_dir::control_loop_mock()).ok();
+                defmt::info!("[TRACE] ✓ MOCK Step-Dir task spawned!");
+            }
+
+            // In production mode, use real 1 kHz Step-Dir loop
+            #[cfg(not(feature = "renode-mock"))]
+            {
+                defmt::info!("[TRACE] About to spawn Step-Dir task...");
+                spawner.spawn(crate::firmware::tasks::step_dir::control_loop()).ok();
+                defmt::info!("[TRACE] ✓ Step-Dir task spawned!");
+                // Note: In future we could add LogMessage::StepDirStarted
+            }
         }
     }
     
