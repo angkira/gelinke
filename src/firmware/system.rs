@@ -4,7 +4,7 @@ use embassy_stm32::usart::Uart;
 use embassy_stm32::peripherals;
 use embassy_time::{Duration, Timer};
 
-use crate::firmware::config::{MotorConfig, EncoderConfig};
+use crate::firmware::config::{MotorConfig, EncoderConfig, ControlMethod};
 use crate::firmware::control::observer::ObserverConfig;
 use crate::firmware::control::position::PositionConfig;
 use crate::firmware::control::velocity::VelocityConfig;
@@ -110,22 +110,49 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
         uart_log::log(LogMessage::CanStarted);
     }
     
-    // Spawn FOC control loop
-    // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
-    #[cfg(feature = "renode-mock")]
-    {
-        defmt::info!("[TRACE] Spawning MOCK FOC task (1 Hz mode)...");
-        spawner.spawn(crate::firmware::tasks::mock_foc::control_loop_mock()).ok();
-        defmt::info!("[TRACE] ✓ MOCK FOC task spawned!");
-    }
-    
-    // In production mode, use real 10 kHz FOC loop
-    #[cfg(not(feature = "renode-mock"))]
-    {
-        defmt::info!("[TRACE] About to spawn FOC task...");
-        spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
-        defmt::info!("[TRACE] ✓ FOC task spawned!");
-        uart_log::log(LogMessage::FocStarted);
+    // Get system state to determine control method
+    let system_state = SystemState::default();
+
+    // Spawn control loop based on configured control method
+    match system_state.motor_config.control_method {
+        ControlMethod::Foc => {
+            // Spawn FOC control loop
+            // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
+            #[cfg(feature = "renode-mock")]
+            {
+                defmt::info!("[TRACE] Spawning MOCK FOC task (1 Hz mode)...");
+                spawner.spawn(crate::firmware::tasks::mock_foc::control_loop_mock()).ok();
+                defmt::info!("[TRACE] ✓ MOCK FOC task spawned!");
+            }
+
+            // In production mode, use real 10 kHz FOC loop
+            #[cfg(not(feature = "renode-mock"))]
+            {
+                defmt::info!("[TRACE] About to spawn FOC task...");
+                spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
+                defmt::info!("[TRACE] ✓ FOC task spawned!");
+                uart_log::log(LogMessage::FocStarted);
+            }
+        }
+        ControlMethod::StepDir => {
+            // Spawn Step-Dir control loop
+            // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
+            #[cfg(feature = "renode-mock")]
+            {
+                defmt::info!("[TRACE] Spawning MOCK Step-Dir task (1 Hz mode)...");
+                spawner.spawn(crate::firmware::tasks::mock_step_dir::control_loop_mock()).ok();
+                defmt::info!("[TRACE] ✓ MOCK Step-Dir task spawned!");
+            }
+
+            // In production mode, use real 1 kHz Step-Dir loop
+            #[cfg(not(feature = "renode-mock"))]
+            {
+                defmt::info!("[TRACE] About to spawn Step-Dir task...");
+                spawner.spawn(crate::firmware::tasks::step_dir::control_loop()).ok();
+                defmt::info!("[TRACE] ✓ Step-Dir task spawned!");
+                // Note: In future we could add LogMessage::StepDirStarted
+            }
+        }
     }
     
     defmt::info!("=== System Ready ===");
