@@ -12,6 +12,11 @@ log.html
 report.html
 *.robot.xml
 
+# Test output files
+validation_plot.png
+test_sequences.json
+*_plot.png
+
 # Tools (submodule or external)
 /tools/
 
