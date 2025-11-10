@@ -1,6 +1,7 @@
 pub mod can_comm;
 pub mod foc;
 pub mod step_dir;
+pub mod power_monitor;
 
 #[cfg(feature = "renode-mock")]
 pub mod mock_can;

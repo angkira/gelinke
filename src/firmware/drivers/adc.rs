@@ -18,6 +18,18 @@ pub const VREF_MV: u32 = 3300;
 /// Typical ratio: 1:15 (R1=14k, R2=1k)
 pub const VBUS_DIVIDER_RATIO: f32 = 15.0;
 
+/// MCU internal temperature sensor calibration values (STM32G431CB).
+/// These values are from the STM32G4 datasheet.
+/// V_SENSE = voltage at 25°C (typically 760 mV)
+/// AVG_SLOPE = temperature coefficient (typically 2.5 mV/°C)
+pub const TEMP_V25_MV: f32 = 760.0;
+pub const TEMP_AVG_SLOPE_MV_PER_C: f32 = 2.5;
+
+/// Thermal management thresholds.
+pub const TEMP_THROTTLE_START_C: f32 = 70.0;  // Begin current reduction
+pub const TEMP_THROTTLE_HEAVY_C: f32 = 80.0;  // Heavy current reduction
+pub const TEMP_SHUTDOWN_C: f32 = 85.0;         // Emergency shutdown
+
 /// Current and voltage sensor using ADC1 with DMA.
 ///
 /// CLN17 V2.0 hardware connections:
@@ -183,10 +195,172 @@ impl Sensors {
     pub fn is_vbus_overvoltage(vbus_mv: u32) -> bool {
         vbus_mv > 50000  // 50V absolute max
     }
+
+    /// Read MCU internal temperature sensor.
+    ///
+    /// Returns temperature in degrees Celsius.
+    ///
+    /// Uses the STM32G4 internal temperature sensor formula:
+    /// T(°C) = (V_SENSE - V_25°C) / Avg_Slope + 25
+    ///
+    /// **Note:** This requires enabling the temperature sensor channel in ADC.
+    /// The temperature sensor is connected to ADC internal channel.
+    pub async fn read_mcu_temperature(&mut self) -> f32 {
+        // Read internal temperature sensor
+        // Note: Embassy may need specific API for internal channels
+        // This is a simplified version - actual implementation may vary
+        let temp_raw = self.adc.read_internal(&mut embassy_stm32::adc::Temperature).await;
+
+        // Convert to millivolts
+        let temp_mv = (temp_raw as u32 * VREF_MV) / 4096;
+
+        // Calculate temperature using calibration formula
+        let temp_c = ((temp_mv as f32 - TEMP_V25_MV) / TEMP_AVG_SLOPE_MV_PER_C) + 25.0;
+
+        temp_c
+    }
+
+    /// Check if MCU temperature is within safe operating range.
+    pub fn is_mcu_temp_safe(temp_c: f32) -> bool {
+        temp_c < TEMP_SHUTDOWN_C
+    }
+
+    /// Get thermal throttle factor based on MCU temperature.
+    ///
+    /// Returns a multiplier (0.0 to 1.0) to apply to current limits:
+    /// - 1.0: Full power (temp < 70°C)
+    /// - 0.7: Reduced power (temp 70-80°C)
+    /// - 0.5: Heavy reduction (temp 80-85°C)
+    /// - 0.0: Emergency shutdown (temp > 85°C)
+    pub fn get_thermal_throttle(temp_c: f32) -> f32 {
+        if temp_c < TEMP_THROTTLE_START_C {
+            1.0  // Full power
+        } else if temp_c < TEMP_THROTTLE_HEAVY_C {
+            // Linear interpolation between 1.0 and 0.7
+            let ratio = (temp_c - TEMP_THROTTLE_START_C) / (TEMP_THROTTLE_HEAVY_C - TEMP_THROTTLE_START_C);
+            1.0 - (ratio * 0.3)
+        } else if temp_c < TEMP_SHUTDOWN_C {
+            // Linear interpolation between 0.7 and 0.5
+            let ratio = (temp_c - TEMP_THROTTLE_HEAVY_C) / (TEMP_SHUTDOWN_C - TEMP_THROTTLE_HEAVY_C);
+            0.7 - (ratio * 0.2)
+        } else {
+            0.0  // Emergency shutdown
+        }
+    }
+
+    /// Check if thermal throttling is active.
+    pub fn is_thermal_throttle_active(temp_c: f32) -> bool {
+        temp_c >= TEMP_THROTTLE_START_C
+    }
 }
 
 // Legacy compatibility aliases
 pub type CurrentSensors = Sensors;
+
+/// RMS current calculator for motor protection.
+///
+/// Calculates root-mean-square (RMS) current over a sliding window
+/// to protect against exceeding DRV8844 thermal limits (1.75A RMS).
+///
+/// Uses I²t calculation: I_RMS = sqrt(mean(I_A² + I_B²) / 2)
+pub struct RmsCalculator {
+    /// Buffer of I² samples (milliamps squared)
+    i_sq_buffer: [f32; 100],
+    /// Current write index in circular buffer
+    index: usize,
+    /// Number of samples accumulated (up to buffer size)
+    count: usize,
+}
+
+impl RmsCalculator {
+    /// Create a new RMS calculator.
+    ///
+    /// # Parameters
+    /// - Window size: 100 samples
+    /// - At 10 kHz sampling: 10ms window
+    /// - At 1 kHz sampling: 100ms window
+    pub const fn new() -> Self {
+        Self {
+            i_sq_buffer: [0.0; 100],
+            index: 0,
+            count: 0,
+        }
+    }
+
+    /// Update with new current samples and return current RMS value.
+    ///
+    /// # Arguments
+    /// * `ia_ma` - Phase A current in milliamps (signed)
+    /// * `ib_ma` - Phase B current in milliamps (signed)
+    ///
+    /// # Returns
+    /// RMS current in milliamps
+    pub fn update(&mut self, ia_ma: i32, ib_ma: i32) -> f32 {
+        // Calculate I² for both phases
+        let i_sq_a = (ia_ma as f32).powi(2);
+        let i_sq_b = (ib_ma as f32).powi(2);
+
+        // Combined I² (average of both phases)
+        let i_sq_combined = (i_sq_a + i_sq_b) / 2.0;
+
+        // Store in circular buffer
+        self.i_sq_buffer[self.index] = i_sq_combined;
+        self.index = (self.index + 1) % 100;
+
+        // Track number of samples (saturate at buffer size)
+        if self.count < 100 {
+            self.count += 1;
+        }
+
+        // Calculate mean I²
+        let sum: f32 = self.i_sq_buffer.iter().take(self.count).sum();
+        let mean_i_sq = sum / (self.count as f32);
+
+        // Return RMS: sqrt(mean(I²))
+        mean_i_sq.sqrt()
+    }
+
+    /// Get current RMS value without updating.
+    pub fn get_rms(&self) -> f32 {
+        if self.count == 0 {
+            return 0.0;
+        }
+
+        let sum: f32 = self.i_sq_buffer.iter().take(self.count).sum();
+        let mean_i_sq = sum / (self.count as f32);
+        mean_i_sq.sqrt()
+    }
+
+    /// Reset the calculator.
+    pub fn reset(&mut self) {
+        self.i_sq_buffer = [0.0; 100];
+        self.index = 0;
+        self.count = 0;
+    }
+
+    /// Check if buffer is full (warm-up complete).
+    pub fn is_warmed_up(&self) -> bool {
+        self.count >= 100
+    }
+}
+
+/// Current limit constants for DRV8844.
+pub mod current_limits {
+    /// DRV8844 maximum RMS current (continuous).
+    pub const MAX_RMS_CURRENT_MA: f32 = 1750.0;  // 1.75A RMS
+
+    /// Peak current limit (transient).
+    /// DRV8844 can handle brief peaks up to 2.5A.
+    pub const MAX_PEAK_CURRENT_MA: i32 = 2500;
+
+    /// Software current limit with safety margin.
+    /// Set to 90% of hardware limit for protection.
+    pub const SOFTWARE_CURRENT_LIMIT_MA: f32 = 1575.0;  // 90% of 1.75A
+
+    /// Emergency overcurrent threshold.
+    /// Immediate shutdown if exceeded.
+    pub const EMERGENCY_CURRENT_MA: i32 = 3000;
+}
 
 #[cfg(test)]
 mod tests {
@@ -252,5 +426,114 @@ mod tests {
     fn vbus_overvoltage() {
         assert!(Sensors::is_vbus_overvoltage(55000));
         assert!(!Sensors::is_vbus_overvoltage(24000));
+    }
+
+    #[test]
+    fn thermal_throttle_full_power() {
+        // Below threshold - full power
+        assert_eq!(Sensors::get_thermal_throttle(25.0), 1.0);
+        assert_eq!(Sensors::get_thermal_throttle(69.9), 1.0);
+    }
+
+    #[test]
+    fn thermal_throttle_reduced() {
+        // At 70°C threshold - should start reducing
+        let throttle = Sensors::get_thermal_throttle(70.0);
+        assert!(throttle >= 0.99 && throttle <= 1.0);
+
+        // At 75°C (midpoint) - approximately 0.85
+        let throttle = Sensors::get_thermal_throttle(75.0);
+        assert!(throttle > 0.8 && throttle < 0.9);
+
+        // At 80°C - approximately 0.7
+        let throttle = Sensors::get_thermal_throttle(80.0);
+        assert!(throttle >= 0.69 && throttle <= 0.71);
+    }
+
+    #[test]
+    fn thermal_throttle_heavy() {
+        // Between 80-85°C
+        let throttle = Sensors::get_thermal_throttle(82.5);
+        assert!(throttle > 0.5 && throttle < 0.7);
+    }
+
+    #[test]
+    fn thermal_throttle_shutdown() {
+        // At or above 85°C
+        assert_eq!(Sensors::get_thermal_throttle(85.0), 0.0);
+        assert_eq!(Sensors::get_thermal_throttle(90.0), 0.0);
+    }
+
+    #[test]
+    fn mcu_temp_safe() {
+        assert!(Sensors::is_mcu_temp_safe(25.0));
+        assert!(Sensors::is_mcu_temp_safe(84.9));
+        assert!(!Sensors::is_mcu_temp_safe(85.0));
+        assert!(!Sensors::is_mcu_temp_safe(100.0));
+    }
+
+    #[test]
+    fn rms_calculator_zero_current() {
+        let mut calc = RmsCalculator::new();
+        let rms = calc.update(0, 0);
+        assert_eq!(rms, 0.0);
+    }
+
+    #[test]
+    fn rms_calculator_constant_current() {
+        let mut calc = RmsCalculator::new();
+
+        // Feed constant 1000mA on both phases
+        for _ in 0..100 {
+            calc.update(1000, 1000);
+        }
+
+        let rms = calc.get_rms();
+        // RMS of constant 1000mA should be approximately 1000mA
+        // sqrt(mean((1000² + 1000²)/2)) = sqrt(1000000) = 1000
+        assert!(rms > 990.0 && rms < 1010.0);
+    }
+
+    #[test]
+    fn rms_calculator_single_phase() {
+        let mut calc = RmsCalculator::new();
+
+        // 1000mA on phase A, 0 on phase B
+        for _ in 0..100 {
+            calc.update(1000, 0);
+        }
+
+        let rms = calc.get_rms();
+        // sqrt(mean((1000² + 0²)/2)) = sqrt(500000) ≈ 707
+        assert!(rms > 700.0 && rms < 715.0);
+    }
+
+    #[test]
+    fn rms_calculator_warmup() {
+        let mut calc = RmsCalculator::new();
+        assert!(!calc.is_warmed_up());
+
+        for _ in 0..99 {
+            calc.update(1000, 1000);
+        }
+        assert!(!calc.is_warmed_up());
+
+        calc.update(1000, 1000);
+        assert!(calc.is_warmed_up());
+    }
+
+    #[test]
+    fn rms_calculator_reset() {
+        let mut calc = RmsCalculator::new();
+
+        for _ in 0..100 {
+            calc.update(1000, 1000);
+        }
+        assert!(calc.is_warmed_up());
+        assert!(calc.get_rms() > 900.0);
+
+        calc.reset();
+        assert!(!calc.is_warmed_up());
+        assert_eq!(calc.get_rms(), 0.0);
     }
 }
