@@ -4,6 +4,7 @@ pub mod config;
 pub mod control;
 pub mod diagnostics;
 pub mod drivers;
+pub mod error;
 pub mod hardware;
 pub mod irpc_integration;
 pub mod startup;
