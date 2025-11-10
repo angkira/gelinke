@@ -126,7 +126,11 @@ impl StepDirController {
         self.current_microstep as i32
     }
 
-    /// Update PWM outputs based on current position
+    /// Update PWM outputs based on current position for DRV8844 H-bridge.
+    ///
+    /// DRV8844 requires 4 independent PWM signals for 2-phase stepper control:
+    /// - AIN1/AIN2 control Phase A H-bridge
+    /// - BIN1/BIN2 control Phase B H-bridge
     pub fn update_pwm(&self, pwm: &mut PhasePwm) {
         if self.state != StepDirState::Running {
             pwm.disable();
@@ -135,20 +139,33 @@ impl StepDirController {
 
         let (phase_a, phase_b) = self.table.get_phases(self.current_microstep);
 
-        // Convert to three-phase outputs (assuming 2-phase to 3-phase conversion)
-        // For a three-phase driver, we use standard Clarke transformation
-        let duty_a = ((phase_a + 1.0) / 2.0).clamp(0.0, 1.0);
-        let duty_b = ((phase_b + 1.0) / 2.0).clamp(0.0, 1.0);
-        let duty_c = (((-phase_a - phase_b) / 2.0 + 1.0) / 2.0).clamp(0.0, 1.0);
-
         let max_duty = pwm.max_duty();
-        let duties = [
-            (duty_a * max_duty as f32) as u16,
-            (duty_b * max_duty as f32) as u16,
-            (duty_c * max_duty as f32) as u16,
-        ];
 
-        pwm.set_phase_duties(duties);
+        // Convert normalized phases [-1.0, 1.0] to H-bridge control signals
+        // For DRV8844:
+        // - Positive phase: AIN1=PWM, AIN2=0 (forward current)
+        // - Negative phase: AIN1=0, AIN2=PWM (reverse current)
+
+        // Phase A H-bridge control
+        let (a1_duty, a2_duty) = if phase_a >= 0.0 {
+            // Forward: AIN1=duty, AIN2=0
+            ((phase_a * max_duty as f32) as u16, 0)
+        } else {
+            // Reverse: AIN1=0, AIN2=duty
+            (0, ((-phase_a) * max_duty as f32) as u16)
+        };
+
+        // Phase B H-bridge control
+        let (b1_duty, b2_duty) = if phase_b >= 0.0 {
+            // Forward: BIN1=duty, BIN2=0
+            ((phase_b * max_duty as f32) as u16, 0)
+        } else {
+            // Reverse: BIN1=0, BIN2=duty
+            (0, ((-phase_b) * max_duty as f32) as u16)
+        };
+
+        // Set all 4 H-bridge inputs: [AIN1, AIN2, BIN1, BIN2]
+        pwm.set_all_duties([a1_duty, a2_duty, b1_duty, b2_duty]);
     }
 
     /// Get current state
@@ -158,9 +175,27 @@ impl StepDirController {
 }
 
 /// Main Step-Dir control loop task
+///
+/// NOTE: This task should be spawned from system.rs with actual hardware peripherals.
+/// The GPIO interface needs to be initialized and passed in.
+///
+/// Example usage from system.rs:
+/// ```ignore
+/// use crate::firmware::drivers::step_dir_interface::StepDirInterface;
+/// use crate::firmware::drivers::pwm::MotorPwm;
+/// use crate::firmware::drivers::motor_driver::MotorDriver;
+///
+/// let step_dir_gpio = StepDirInterface::new(p);  // Takes PB5, PB4, PA8, PB3
+/// let pwm = MotorPwm::new(p, DEFAULT_PWM_FREQ);   // Takes PA0, PA1, PB10, PB11
+/// let motor_driver = MotorDriver::new(p);         // Takes PA4, PB1, PB2
+///
+/// spawner.spawn(step_dir_control_loop_with_hw(step_dir_gpio, pwm, motor_driver)).ok();
+/// ```
 #[embassy_executor::task]
 pub async fn control_loop() {
-    defmt::info!("Step-Dir control loop starting");
+    defmt::info!("Step-Dir control loop starting (STUB MODE - no hardware)");
+    defmt::warn!("This task needs hardware peripherals to be functional");
+    defmt::warn!("Use control_loop_with_hardware() from system.rs instead");
 
     let mut ticker = Ticker::every(Duration::from_micros(STEP_DIR_LOOP_PERIOD_US));
     let mut iteration = 0u32;
@@ -170,15 +205,90 @@ pub async fn control_loop() {
 
         iteration = iteration.wrapping_add(1);
 
-        // Log less frequently than FOC to reduce overhead
+        // Log less frequently to reduce overhead
         if iteration % 1_000 == 0 {
-            defmt::info!("Step-Dir loop: {} iterations", iteration);
+            defmt::info!("Step-Dir stub loop: {} iterations (waiting for hardware integration)", iteration);
         }
 
-        // TODO: Read step/dir inputs from GPIO
-        // TODO: Update PWM outputs based on position
+        // This stub is kept for compatibility with existing test infrastructure.
+        // Actual hardware control requires GPIO/PWM peripherals passed from system.rs
     }
 }
+
+/// Step-Dir control loop with hardware integration (event-driven).
+///
+/// This is the production implementation that uses EXTI interrupts for step pulses.
+/// Much more efficient than polling - CPU only wakes up on step edges.
+///
+/// NOTE: This is a template showing how to integrate the hardware.
+/// Uncomment and use this in system.rs when ready for hardware testing.
+/*
+#[embassy_executor::task]
+pub async fn control_loop_with_hardware(
+    mut gpio: crate::firmware::drivers::step_dir_interface::StepDirInterface,
+    mut pwm: crate::firmware::drivers::pwm::MotorPwm,
+    mut motor: crate::firmware::drivers::motor_driver::MotorDriver,
+) {
+    defmt::info!("Step-Dir control loop with hardware starting");
+
+    // Create controller
+    let config = crate::firmware::config::MotorConfig::default();
+    let mut controller = StepDirController::new(&config);
+
+    // Enable motor driver
+    motor.enable();
+    defmt::info!("Motor driver enabled");
+
+    let mut step_count = 0u32;
+
+    // Event-driven loop - waits for step pulses via EXTI interrupt
+    loop {
+        // Wait for step pulse (async - CPU sleeps until interrupt)
+        gpio.wait_for_step().await;
+        step_count = step_count.wrapping_add(1);
+
+        // Read direction from GPIO
+        let direction = gpio.read_direction();
+        controller.set_direction(direction);
+
+        // Check if enabled
+        if gpio.is_enabled() {
+            if controller.state() != StepDirState::Running {
+                controller.enable();
+                gpio.clear_error();
+            }
+
+            // Process step
+            controller.step();
+
+            // Update PWM outputs
+            controller.update_pwm(&mut pwm);
+
+            // Log periodically
+            if step_count % 1000 == 0 {
+                defmt::info!("Steps: {}, Position: {}", step_count, controller.position_steps());
+            }
+        } else {
+            // Disabled via ENABLE pin
+            if controller.state() != StepDirState::Idle {
+                controller.disable();
+                pwm.disable();
+                defmt::info!("Step-Dir disabled via ENABLE pin");
+            }
+        }
+
+        // Check for motor driver faults
+        if motor.is_fault() {
+            defmt::error!("Motor driver fault detected!");
+            controller.disable();
+            pwm.disable();
+            gpio.set_error();
+            motor.disable();
+            // Could implement fault recovery here
+        }
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {

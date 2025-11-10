@@ -1,5 +1,6 @@
 pub mod adc;
 pub mod can;
+pub mod can_transceiver;
 pub mod dma;
 pub mod motor_driver;
 pub mod pwm;
