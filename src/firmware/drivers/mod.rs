@@ -1,7 +1,9 @@
 pub mod adc;
 pub mod can;
 pub mod dma;
+pub mod motor_driver;
 pub mod pwm;
 pub mod sensors;
 pub mod spi;
+pub mod status_leds;
 pub mod usb;

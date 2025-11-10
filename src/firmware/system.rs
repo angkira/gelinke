@@ -12,7 +12,7 @@ use crate::firmware::drivers::can::DEFAULT_NODE_ID;
 use crate::firmware::uart_log::{self, LogMessage};
 
 bind_interrupts!(struct UartIrqs {
-    USART1 => embassy_stm32::usart::InterruptHandler<peripherals::USART1>;
+    USART3 => embassy_stm32::usart::InterruptHandler<peripherals::USART3>;
 });
 
 /// System state shared between tasks.
@@ -40,15 +40,15 @@ impl Default for SystemState {
 pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     defmt::info!("=== Joint Firmware Initialization START ===");
     
-    // Initialize UART for test logging (USART1: PA9=TX, PA10=RX)
+    // Initialize UART for test logging (USART3: PC10=TX, PC11=RX)
     defmt::info!("[TRACE] About to initialize UART...");
-    defmt::info!("[TRACE] UART pins: PA9=TX, PA10=RX");
+    defmt::info!("[TRACE] UART pins: PC10=TX, PC11=RX");
     defmt::info!("[TRACE] UART DMA: CH1=TX, CH2=RX");
-    
+
     let mut uart = Uart::new(
-        p.USART1,
-        p.PA10, // RX
-        p.PA9,  // TX
+        p.USART3,
+        p.PC11, // RX
+        p.PC10, // TX
         UartIrqs,
         p.DMA1_CH1,  // TX DMA
         p.DMA1_CH2,  // RX DMA
@@ -103,8 +103,8 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
         spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
             DEFAULT_NODE_ID,
             p.FDCAN1,  // FDCAN peripheral (iRPC takes ownership)
-            p.PA12,    // TX pin
-            p.PA11,    // RX pin
+            p.PB9,     // TX pin (CLN17 V2.0: PB9)
+            p.PB8,     // RX pin (CLN17 V2.0: PB8)
         )).ok();
         defmt::info!("[TRACE] ✓ CAN task spawned!");
         uart_log::log(LogMessage::CanStarted);
