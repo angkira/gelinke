@@ -1,5 +1,58 @@
 // STM32G431CB platform definition for Renode
 // CLN17 v2.0 FOC Motor Controller with Mock Peripherals
+//
+// Official CLN17 V2.0 Pinout (from TunePulse firmware):
+//
+// PWM Motor Control (DRV8844):
+//   PA0  = TIM2_CH1 → DRV8844 AIN1
+//   PA1  = TIM2_CH2 → DRV8844 AIN2
+//   PB11 = TIM2_CH4 → DRV8844 BIN1
+//   PB10 = TIM2_CH3 → DRV8844 BIN2
+//
+// Current Sensing & Voltage:
+//   PA3 = ADC1_IN4  → DRV8844 AISEN (Phase A current)
+//   PB0 = ADC1_IN15 → DRV8844 BISEN (Phase B current)
+//   PA2 = ADC1_IN3  → Vbus voltage divider
+//
+// Motor Driver Control:
+//   PA4 = GPIO Out → DRV8844 nSLEEP (enable)
+//   PB1 = GPIO In  → DRV8844 nFAULT (fault detection)
+//   PB2 = GPIO Out → DRV8844 nRESET (reset)
+//
+// Encoder (TLE5012B):
+//   PA5 = SPI1_SCK
+//   PA6 = SPI1_MISO
+//   PA7 = SPI1_MOSI
+//   PC4 = GPIO Out → Encoder CS
+//
+// CAN-FD Communication:
+//   PB8 = FDCAN1_RX
+//   PB9 = FDCAN1_TX
+//   PA9 = GPIO Out → CAN transceiver SHDN
+//   PA10 = GPIO Out → CAN transceiver S (mode)
+//
+// UART Debug:
+//   PC10 = USART3_TX
+//   PC11 = USART3_RX
+//
+// USB:
+//   PA11 = USB_DM
+//   PA12 = USB_DP
+//
+// Step-Dir Interface:
+//   PB5 = GPIO In + EXTI → STEP pulse input
+//   PB4 = GPIO In → DIR direction input
+//   PA8 = GPIO In → ENABLE input
+//   PB3 = GPIO Out → ERROR output
+//
+// Status LEDs:
+//   PB13 = GPIO Out → Red LED (active low)
+//   PB14 = GPIO Out → Green LED (active low)
+//   PB15 = GPIO Out → Blue LED (active low)
+//
+// User Switches:
+//   PA15 = GPIO In → Switch 1 (pullup, active low)
+//   PB7  = GPIO In → Switch 2 (pullup, active low)
 
 using "platforms/cpus/stm32g4.repl"
 
@@ -9,35 +62,41 @@ sram: Memory.MappedMemory @ sysbus 0x20000000
 flash: Memory.MappedMemory @ sysbus 0x08000000
     size: 0x20000  // 128KB Flash
 
-// FDCAN1 for iRPC communication
+// FDCAN1 for iRPC communication (CAN pins: PB8=RX, PB9=TX)
 fdcan1: CAN.STMCAN @ sysbus 0x40006400
     -> nvic@19
 
-// Timers for PWM
-tim1: Timers.STM32_Timer @ sysbus 0x40012C00
-    frequency: 170000000  // 170 MHz
-    -> nvic@24
-
+// TIM2 for PWM motor control (DRV8844)
+// PA0=TIM2_CH1, PA1=TIM2_CH2, PB10=TIM2_CH3, PB11=TIM2_CH4
 tim2: Timers.STM32_Timer @ sysbus 0x40000000
-    frequency: 170000000
+    frequency: 170000000  // 170 MHz
     -> nvic@28
+
+// TIM1 (not used in CLN17 V2.0, but keep for compatibility)
+tim1: Timers.STM32_Timer @ sysbus 0x40012C00
+    frequency: 170000000
+    -> nvic@24
 
 tim3: Timers.STM32_Timer @ sysbus 0x40000400
     frequency: 170000000
     -> nvic@29
 
-// ADC for current sensing
+// ADC for current sensing (PA3, PB0) and Vbus (PA2)
 adc1: Analog.STM32F4_ADC @ sysbus 0x50000000
     -> nvic@18
 
 adc2: Analog.STM32F4_ADC @ sysbus 0x50000100
     -> nvic@18
 
-// SPI for encoder (AS5047P)
+// SPI for encoder (TLE5012B on PA5/PA6/PA7, CS=PC4)
 spi1: SPI.STM32SPI @ sysbus 0x40013000
     -> nvic@35
 
-// UART for debugging
+// USART3 for debugging (PC10=TX, PC11=RX)
+usart3: UART.STM32_UART @ sysbus 0x40004800
+    -> nvic@39
+
+// Legacy USART1 (not used in CLN17 V2.0, but keep for compatibility)
 usart1: UART.STM32_UART @ sysbus 0x40013800
     -> nvic@37
 
@@ -54,15 +113,15 @@ flashController: MTD.STM32G4_FlashController @ sysbus 0x40022000
 // MOCK PERIPHERALS (loaded via Python scripts in .resc)
 // ============================================================================
 // These will be created and connected by the init script:
-// - encoder: AS5047P magnetic encoder (connected to spi1)
-// - currentADC: 3-phase current sense (provides values to adc1/adc2)
-// - canTest: CAN test device (connected to CAN hub)
+// - encoder: TLE5012B magnetic encoder (connected to spi1, CS on PC4)
+// - currentADC: DRV8844 current sense on PA3/PB0 (provides values to adc1)
+// - vbusADC: Supply voltage on PA2 (provides values to adc1)
+// - canTest: CAN test device on PB8/PB9 (connected to CAN hub)
 // - motor: BLDC motor simulator (physics simulation)
 
 // Clock configuration (for reference)
 // HSI: 16 MHz
 // PLL: 170 MHz (max for STM32G4)
 // AHB: 170 MHz
-// APB1: 170 MHz  
+// APB1: 170 MHz
 // APB2: 170 MHz
-

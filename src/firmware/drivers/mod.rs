@@ -6,4 +6,5 @@ pub mod pwm;
 pub mod sensors;
 pub mod spi;
 pub mod status_leds;
+pub mod step_dir_interface;
 pub mod usb;
