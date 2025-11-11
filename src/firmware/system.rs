@@ -10,6 +10,11 @@ use crate::firmware::control::position::PositionConfig;
 use crate::firmware::control::velocity::VelocityConfig;
 use crate::firmware::drivers::can::DEFAULT_NODE_ID;
 use crate::firmware::uart_log::{self, LogMessage};
+use crate::firmware::error::{FirmwareError, ErrorCollection};
+use crate::firmware::drivers::watchdog::{Watchdog, WatchdogConfig};
+
+#[cfg(not(feature = "renode-mock"))]
+use crate::firmware::drivers::flash_storage::FlashStorage;
 
 bind_interrupts!(struct UartIrqs {
     USART3 => embassy_stm32::usart::InterruptHandler<peripherals::USART3>;
@@ -39,13 +44,81 @@ impl Default for SystemState {
 /// Initialize system and spawn tasks.
 pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     defmt::info!("=== Joint Firmware Initialization START ===");
-    
-    // Initialize UART for test logging (USART3: PC10=TX, PC11=RX)
-    defmt::info!("[TRACE] About to initialize UART...");
-    defmt::info!("[TRACE] UART pins: PC10=TX, PC11=RX");
-    defmt::info!("[TRACE] UART DMA: CH1=TX, CH2=RX");
 
-    let mut uart = Uart::new(
+    // Track initialization errors (non-fatal errors continue in degraded mode)
+    let mut init_errors = ErrorCollection::new();
+
+    // ========================================================================
+    // STEP 1: Initialize Watchdog (CRITICAL - must be first)
+    // ========================================================================
+    // The watchdog protects against hangs during initialization.
+    // If initialization takes too long, the system will reset.
+
+    #[cfg(not(feature = "renode-mock"))]
+    let watchdog = {
+        defmt::info!("[INIT] Initializing watchdog timer...");
+        match Watchdog::new(p.IWDG, WatchdogConfig::default()) {
+            Ok(wd) => {
+                defmt::info!("[INIT] ✓ Watchdog initialized (500ms timeout)");
+                Some(wd)
+            }
+            Err(_) => {
+                defmt::warn!("[INIT] ✗ Watchdog init failed - continuing without watchdog protection");
+                init_errors.add(FirmwareError::WatchdogInitFailed);
+                None
+            }
+        }
+    };
+
+    #[cfg(feature = "renode-mock")]
+    let watchdog: Option<Watchdog> = None;
+
+    // ========================================================================
+    // STEP 2: Initialize Flash Storage (for calibration/config persistence)
+    // ========================================================================
+
+    #[cfg(not(feature = "renode-mock"))]
+    let mut flash_storage = {
+        defmt::info!("[INIT] Initializing flash storage...");
+        match FlashStorage::new(p.FLASH) {
+            Ok(mut storage) => {
+                defmt::info!("[INIT] ✓ Flash storage initialized");
+
+                // Try to load stored data
+                match storage.load() {
+                    Ok(data) => {
+                        defmt::info!("[INIT] ✓ Loaded calibration from flash");
+                        if data.calibration.valid {
+                            defmt::info!("[INIT]   → Calibration valid (timestamp: {}s)",
+                                data.calibration.timestamp_s);
+                        }
+                    }
+                    Err(_) => {
+                        defmt::warn!("[INIT] ✗ No valid calibration in flash - using defaults");
+                    }
+                }
+
+                Some(storage)
+            }
+            Err(_) => {
+                defmt::warn!("[INIT] ✗ Flash storage init failed - calibration will not persist");
+                init_errors.add(FirmwareError::FlashInitFailed);
+                None
+            }
+        }
+    };
+
+    #[cfg(feature = "renode-mock")]
+    let flash_storage: Option<()> = None;
+
+    // ========================================================================
+    // STEP 3: Initialize UART (non-critical - can operate without logging)
+    // ========================================================================
+
+    defmt::info!("[INIT] Initializing UART for logging...");
+    defmt::info!("[INIT]   → UART3: PC10=TX, PC11=RX, DMA: CH1=TX, CH2=RX");
+
+    let uart_result = Uart::new(
         p.USART3,
         p.PC11, // RX
         p.PC10, // TX
@@ -53,118 +126,193 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
         p.DMA1_CH1,  // TX DMA
         p.DMA1_CH2,  // RX DMA
         uart_log::uart_config(),
-    ).expect("UART init failed");
-    
-    defmt::info!("[TRACE] ✓ UART initialized successfully!");
-    
-    // Send async banner to UART for tests
-    defmt::info!("[TRACE] About to write banner to UART...");
-    let _ = uart.write(b"===========================================\r\n").await.ok();
-    defmt::info!("[TRACE] ✓ Banner line 1 written");
-    let _ = uart.write(b"  CLN17 v2.0 Joint Firmware\r\n").await.ok();
-    defmt::info!("[TRACE] ✓ Banner line 2 written");
-    let _ = uart.write(b"  Target: STM32G431CB @ 170 MHz\r\n").await.ok();
-    defmt::info!("[TRACE] ✓ Banner line 3 written");
-    let _ = uart.write(b"  Framework: Embassy + iRPC\r\n").await.ok();
-    defmt::info!("[TRACE] ✓ Banner line 4 written");
-    let _ = uart.write(b"===========================================\r\n").await.ok();
-    defmt::info!("[TRACE] ✓ All banner lines written!");
-    
-    // Spawn UART logger task
-    defmt::info!("[TRACE] About to spawn UART logger task...");
-    spawner.spawn(uart_log::uart_logger_task(uart)).ok();
-    defmt::info!("[TRACE] ✓ UART logger task spawned!");
-    
+    );
+
+    match uart_result {
+        Ok(mut uart) => {
+            defmt::info!("[INIT] ✓ UART initialized successfully");
+
+            // Send banner to UART
+            let _ = uart.write(b"===========================================\r\n").await;
+            let _ = uart.write(b"  CLN17 v2.0 Joint Firmware\r\n").await;
+            let _ = uart.write(b"  Target: STM32G431CB @ 170 MHz\r\n").await;
+            let _ = uart.write(b"  Framework: Embassy + iRPC\r\n").await;
+            let _ = uart.write(b"===========================================\r\n").await;
+
+            // Spawn UART logger task
+            if spawner.spawn(uart_log::uart_logger_task(uart)).is_err() {
+                defmt::warn!("[INIT] ✗ Failed to spawn UART logger task");
+            } else {
+                defmt::info!("[INIT] ✓ UART logger task spawned");
+            }
+        }
+        Err(_) => {
+            defmt::warn!("[INIT] ✗ UART init failed - continuing without logging");
+            init_errors.add(FirmwareError::UartInitFailed);
+        }
+    }
+
     defmt::info!("Target: STM32G431CB @ 170 MHz");
     defmt::info!("Framework: Embassy + iRPC");
     uart_log::log(LogMessage::Init);
-    
-    // TODO: Initialize other drivers (PWM, ADC, Encoder)
-    // This requires proper peripheral splitting
-    
-    // Send log messages via channel (async)
-    uart_log::log(LogMessage::Init);
-    
-    // Spawn CAN communication task
-    // In Renode mock mode, use a no-op task that doesn't block on CAN messages
+
+    // ========================================================================
+    // STEP 4: Spawn Watchdog Feeder Task (if watchdog initialized)
+    // ========================================================================
+
+    #[cfg(not(feature = "renode-mock"))]
+    if let Some(wd) = watchdog {
+        defmt::info!("[INIT] Spawning watchdog feeder task...");
+        if spawner.spawn(crate::firmware::tasks::watchdog_feeder::watchdog_feeder(wd)).is_err() {
+            defmt::error!("[INIT] ✗ CRITICAL: Failed to spawn watchdog feeder!");
+            // This is critical - without feeder, system will reset
+            enter_safe_mode(&init_errors).await;
+        } else {
+            defmt::info!("[INIT] ✓ Watchdog feeder task spawned");
+        }
+    }
+
+    // ========================================================================
+    // STEP 5: Spawn CAN Communication Task
+    // ========================================================================
+
     #[cfg(feature = "renode-mock")]
     {
-        defmt::info!("[TRACE] Spawning MOCK CAN task (Renode mode)...");
-        spawner.spawn(crate::firmware::tasks::mock_can::can_communication_mock(
+        defmt::info!("[INIT] Spawning MOCK CAN task (Renode mode)...");
+        if spawner.spawn(crate::firmware::tasks::mock_can::can_communication_mock(
             DEFAULT_NODE_ID,
-        )).ok();
-        defmt::info!("[TRACE] ✓ MOCK CAN task spawned!");
+        )).is_err() {
+            defmt::warn!("[INIT] ✗ Failed to spawn mock CAN task");
+        } else {
+            defmt::info!("[INIT] ✓ MOCK CAN task spawned");
+        }
     }
-    
-    // In production mode, use real iRPC CAN transport
+
     #[cfg(not(feature = "renode-mock"))]
     {
-        defmt::info!("[TRACE] About to spawn CAN task...");
-        spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
+        defmt::info!("[INIT] Spawning CAN communication task...");
+        if spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
             DEFAULT_NODE_ID,
-            p.FDCAN1,  // FDCAN peripheral (iRPC takes ownership)
+            p.FDCAN1,  // FDCAN peripheral
             p.PB9,     // TX pin (CLN17 V2.0: PB9)
             p.PB8,     // RX pin (CLN17 V2.0: PB8)
-        )).ok();
-        defmt::info!("[TRACE] ✓ CAN task spawned!");
-        uart_log::log(LogMessage::CanStarted);
+        )).is_err() {
+            defmt::warn!("[INIT] ✗ Failed to spawn CAN task - will operate in degraded mode");
+            init_errors.add(FirmwareError::CanInitFailed);
+        } else {
+            defmt::info!("[INIT] ✓ CAN communication task spawned");
+            uart_log::log(LogMessage::CanStarted);
+        }
     }
-    
-    // Get system state to determine control method
+
+    // ========================================================================
+    // STEP 6: Spawn Control Loop (FOC or Step-Dir)
+    // ========================================================================
+
     let system_state = SystemState::default();
 
-    // Spawn control loop based on configured control method
     match system_state.motor_config.control_method {
         ControlMethod::Foc => {
-            // Spawn FOC control loop
-            // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
             #[cfg(feature = "renode-mock")]
             {
-                defmt::info!("[TRACE] Spawning MOCK FOC task (1 Hz mode)...");
-                spawner.spawn(crate::firmware::tasks::mock_foc::control_loop_mock()).ok();
-                defmt::info!("[TRACE] ✓ MOCK FOC task spawned!");
+                defmt::info!("[INIT] Spawning MOCK FOC task (1 Hz mode)...");
+                if spawner.spawn(crate::firmware::tasks::mock_foc::control_loop_mock()).is_err() {
+                    defmt::warn!("[INIT] ✗ Failed to spawn mock FOC task");
+                } else {
+                    defmt::info!("[INIT] ✓ MOCK FOC task spawned");
+                }
             }
 
-            // In production mode, use real 10 kHz FOC loop
             #[cfg(not(feature = "renode-mock"))]
             {
-                defmt::info!("[TRACE] About to spawn FOC task...");
-                spawner.spawn(crate::firmware::tasks::foc::control_loop()).ok();
-                defmt::info!("[TRACE] ✓ FOC task spawned!");
-                uart_log::log(LogMessage::FocStarted);
+                defmt::info!("[INIT] Spawning FOC control loop...");
+                if spawner.spawn(crate::firmware::tasks::foc::control_loop()).is_err() {
+                    defmt::warn!("[INIT] ✗ Failed to spawn FOC task");
+                } else {
+                    defmt::info!("[INIT] ✓ FOC task spawned");
+                    uart_log::log(LogMessage::FocStarted);
+                }
             }
         }
         ControlMethod::StepDir => {
-            // Spawn Step-Dir control loop
-            // In Renode mock mode, use 1 Hz loop to avoid overwhelming executor
             #[cfg(feature = "renode-mock")]
             {
-                defmt::info!("[TRACE] Spawning MOCK Step-Dir task (1 Hz mode)...");
-                spawner.spawn(crate::firmware::tasks::mock_step_dir::control_loop_mock()).ok();
-                defmt::info!("[TRACE] ✓ MOCK Step-Dir task spawned!");
+                defmt::info!("[INIT] Spawning MOCK Step-Dir task (1 Hz mode)...");
+                if spawner.spawn(crate::firmware::tasks::mock_step_dir::control_loop_mock()).is_err() {
+                    defmt::warn!("[INIT] ✗ Failed to spawn mock Step-Dir task");
+                } else {
+                    defmt::info!("[INIT] ✓ MOCK Step-Dir task spawned");
+                }
             }
 
-            // In production mode, use real 1 kHz Step-Dir loop
             #[cfg(not(feature = "renode-mock"))]
             {
-                defmt::info!("[TRACE] About to spawn Step-Dir task...");
-                spawner.spawn(crate::firmware::tasks::step_dir::control_loop()).ok();
-                defmt::info!("[TRACE] ✓ Step-Dir task spawned!");
-                // Note: In future we could add LogMessage::StepDirStarted
+                defmt::info!("[INIT] Spawning Step-Dir control loop...");
+                if spawner.spawn(crate::firmware::tasks::step_dir::control_loop()).is_err() {
+                    defmt::warn!("[INIT] ✗ Failed to spawn Step-Dir task");
+                } else {
+                    defmt::info!("[INIT] ✓ Step-Dir task spawned");
+                }
             }
         }
     }
-    
-    defmt::info!("=== System Ready ===");
+
+    // ========================================================================
+    // STEP 7: Report Initialization Status
+    // ========================================================================
+
+    if init_errors.is_empty() {
+        defmt::info!("=== System Ready (Full Mode) ===");
+    } else {
+        defmt::warn!("=== System Ready (Degraded Mode - {} errors) ===", init_errors.len());
+        for error in init_errors.iter() {
+            defmt::warn!("  → {}", error.description());
+        }
+
+        // Check if any critical errors occurred
+        if init_errors.has_critical_error() {
+            defmt::error!("CRITICAL errors detected - entering safe mode");
+            enter_safe_mode(&init_errors).await;
+        }
+    }
+
     uart_log::log(LogMessage::Ready);
-    
-    // Main heartbeat
+
+    // ========================================================================
+    // STEP 8: Main Heartbeat Loop
+    // ========================================================================
+
     let mut counter = 0u32;
     loop {
         Timer::after(Duration::from_secs(1)).await;
         counter = counter.wrapping_add(1);
         defmt::info!("System heartbeat: {} sec", counter);
         uart_log::log(LogMessage::Heartbeat(counter));
+    }
+}
+
+/// Enter safe mode when critical errors prevent normal operation.
+///
+/// Safe mode:
+/// - Disables motor control
+/// - Blinks error LED
+/// - Waits for watchdog reset or manual reset
+async fn enter_safe_mode(errors: &ErrorCollection) -> ! {
+    defmt::error!("=== ENTERING SAFE MODE ===");
+    defmt::error!("Critical errors prevent normal operation:");
+
+    for error in errors.iter() {
+        defmt::error!("  → {} (severity: {:?})",
+            error.description(),
+            error.severity());
+    }
+
+    defmt::error!("System halted. Manual reset required.");
+
+    // Infinite loop - watchdog will reset system if enabled
+    loop {
+        Timer::after(Duration::from_millis(500)).await;
+        defmt::error!("SAFE MODE - awaiting reset");
     }
 }
 

@@ -7,7 +7,6 @@
 /// Dual-bank provides redundancy and safe updates.
 
 use embassy_stm32::flash::{Flash, Blocking};
-use embassy_stm32::Peripherals;
 use crc::{Crc, CRC_32_CKSUM};
 
 const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
@@ -124,8 +123,8 @@ impl FlashStorage {
     const VERSION: u32 = 1;
 
     /// Create a new flash storage instance.
-    pub fn new(p: Peripherals) -> Self {
-        let flash = Flash::new_blocking(p.FLASH);
+    pub fn new(flash_peripheral: embassy_stm32::peripherals::FLASH) -> Self {
+        let flash = Flash::new_blocking(flash_peripheral);
 
         defmt::info!("Flash storage initialized");
         defmt::info!("  Bank A: 0x{:08X}", Self::BANK_A_ADDR);
