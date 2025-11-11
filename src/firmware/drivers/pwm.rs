@@ -3,7 +3,9 @@ use embassy_stm32::time::Hertz;
 use embassy_stm32::timer::Channel;
 use embassy_stm32::timer::simple_pwm::{SimplePwm, PwmPin};
 use embassy_stm32::timer::low_level::CountingMode;
-use embassy_stm32::{Peripherals, peripherals::TIM2};
+use embassy_stm32::timer::{Ch1, Ch2, Ch3, Ch4};
+use embassy_stm32::peripherals::{TIM2, PA0, PA1, PB10, PB11};
+use embassy_stm32::Peri;
 
 /// Default PWM frequency for DRV8844 motor driver (20 kHz).
 pub const DEFAULT_PWM_FREQ: Hertz = Hertz(20_000);
@@ -28,17 +30,29 @@ impl<'d> MotorPwm<'d> {
     /// Create a new DRV8844 motor PWM driver.
     ///
     /// # Arguments
-    /// * `p` - Peripherals struct from embassy_stm32::init()
+    /// * `tim2` - TIM2 peripheral
+    /// * `pa0` - PA0 pin for AIN1 (TIM2_CH1)
+    /// * `pa1` - PA1 pin for AIN2 (TIM2_CH2)
+    /// * `pb10` - PB10 pin for BIN2 (TIM2_CH3)
+    /// * `pb11` - PB11 pin for BIN1 (TIM2_CH4)
     /// * `freq` - PWM frequency (typically 20-40 kHz)
-    pub fn new(p: Peripherals, freq: Hertz) -> Self {
+    pub fn new(
+        tim2: Peri<'d, TIM2>,
+        pa0: Peri<'d, PA0>,
+        pa1: Peri<'d, PA1>,
+        pb10: Peri<'d, PB10>,
+        pb11: Peri<'d, PB11>,
+        freq: Hertz,
+    ) -> Self {
         // Configure PWM pins for DRV8844 (4 independent channels)
-        let ch1 = PwmPin::new_ch1(p.PA0, OutputType::PushPull);   // AIN1
-        let ch2 = PwmPin::new_ch2(p.PA1, OutputType::PushPull);   // AIN2
-        let ch3 = PwmPin::new_ch3(p.PB10, OutputType::PushPull);  // BIN2
-        let ch4 = PwmPin::new_ch4(p.PB11, OutputType::PushPull);  // BIN1
+        // Embassy 0.4.0: Use PwmPin::new with explicit type annotations
+        let ch1: PwmPin<'_, TIM2, Ch1> = PwmPin::new(pa0, OutputType::PushPull);   // AIN1
+        let ch2: PwmPin<'_, TIM2, Ch2> = PwmPin::new(pa1, OutputType::PushPull);   // AIN2
+        let ch3: PwmPin<'_, TIM2, Ch3> = PwmPin::new(pb10, OutputType::PushPull);  // BIN2
+        let ch4: PwmPin<'_, TIM2, Ch4> = PwmPin::new(pb11, OutputType::PushPull);  // BIN1
 
         let mut pwm = SimplePwm::new(
-            p.TIM2,
+            tim2,
             Some(ch1),
             Some(ch2),
             Some(ch3),
@@ -47,13 +61,15 @@ impl<'d> MotorPwm<'d> {
             CountingMode::EdgeAlignedUp,
         );
 
-        // Start with all channels disabled (safe state)
-        pwm.disable(Channel::Ch1);
-        pwm.disable(Channel::Ch2);
-        pwm.disable(Channel::Ch3);
-        pwm.disable(Channel::Ch4);
+        // Start with all channels at zero duty (safe state)
+        // Embassy 0.4.0: Use channel().set_duty_cycle() instead of set_duty()
+        pwm.ch1().set_duty_cycle(0);
+        pwm.ch2().set_duty_cycle(0);
+        pwm.ch3().set_duty_cycle(0);
+        pwm.ch4().set_duty_cycle(0);
 
-        let max_duty = pwm.get_max_duty();
+        // Embassy 0.4.0: max_duty() is now max_duty_cycle()
+        let max_duty = pwm.max_duty_cycle();
 
         Self { pwm, max_duty }
     }
@@ -84,7 +100,7 @@ impl<'d> MotorPwm<'d> {
         self.set_channel_duty(Channel::Ch3, duty);
     }
 
-    /// Set duty cycle for a specific channel and enable it.
+    /// Set duty cycle for a specific channel.
     pub fn set_channel_duty(&mut self, channel: Channel, duty: u16) {
         assert!(
             duty <= self.max_duty,
@@ -92,8 +108,8 @@ impl<'d> MotorPwm<'d> {
             duty,
             self.max_duty
         );
-        self.pwm.set_duty(channel, duty);
-        self.pwm.enable(channel);
+        // Embassy 0.4.0: Use channel().set_duty_cycle()
+        self.pwm.channel(channel).set_duty_cycle(duty);
     }
 
     /// Set both Phase A duty cycles (H-bridge control).
@@ -142,10 +158,11 @@ impl<'d> MotorPwm<'d> {
 
     /// Disable all PWM outputs (safe state, motor coasts).
     pub fn disable(&mut self) {
-        self.pwm.disable(Channel::Ch1);
-        self.pwm.disable(Channel::Ch2);
-        self.pwm.disable(Channel::Ch3);
-        self.pwm.disable(Channel::Ch4);
+        // Embassy 0.4.0: Use channel methods
+        self.pwm.ch1().set_duty_cycle(0);
+        self.pwm.ch2().set_duty_cycle(0);
+        self.pwm.ch3().set_duty_cycle(0);
+        self.pwm.ch4().set_duty_cycle(0);
     }
 
     /// Set Phase A to forward rotation.

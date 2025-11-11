@@ -245,7 +245,7 @@ pub async fn power_monitor(
         // 4. RMS OVERCURRENT PROTECTION (>1.75A)
         // Only check after warmup period
         if rms_calc.is_warmed_up() && i_rms > MAX_RMS_CURRENT_MA {
-            defmt::warn!("RMS OVERCURRENT: {:.0} mA (limit: {:.0} mA)", i_rms, MAX_RMS_CURRENT_MA);
+            defmt::warn!("RMS OVERCURRENT: {} mA (limit: {} mA)", i_rms as u32, MAX_RMS_CURRENT_MA);
 
             // Gradual current limiting (not emergency stop)
             // This would be implemented by reducing PWM duty cycle
@@ -260,7 +260,7 @@ pub async fn power_monitor(
 
         // 5. MCU OVERTEMPERATURE PROTECTION
         if !Sensors::is_mcu_temp_safe(mcu_temp) {
-            defmt::error!("MCU OVERTEMP: {:.1}°C (limit: {:.1}°C)", mcu_temp, TEMP_SHUTDOWN_C);
+            defmt::error!("MCU OVERTEMP: {}°C (limit: {}°C)", mcu_temp, TEMP_SHUTDOWN_C);
             motor_driver.emergency_stop();
             status_leds.set_color(LedColor::Red);
 
@@ -274,8 +274,8 @@ pub async fn power_monitor(
         } else if Sensors::is_thermal_throttle_active(mcu_temp) {
             // Thermal throttling active
             if tick_counter % 100 == 0 {  // Log every 1 second
-                defmt::warn!("Thermal throttle: {:.0}% @ {:.1}°C",
-                           throttle * 100.0, mcu_temp);
+                defmt::warn!("Thermal throttle: {}% @ {}°C",
+                           (throttle * 100.0) as u32, mcu_temp);
             }
             status_leds.set_color(LedColor::Yellow);
         }
@@ -368,12 +368,12 @@ pub async fn power_monitor(
         // === PERIODIC LOGGING (every 10 seconds) ===
         if tick_counter % 1000 == 0 {
             let metrics = POWER_METRICS.lock().await;
-            defmt::info!("Power: V={} mV, I_RMS={:.0} mA, P={} mW, T={:.1}°C, Throttle={:.0}%",
+            defmt::info!("Power: V={} mV, I_RMS={} mA, P={} mW, T={}°C, Throttle={}%",
                        metrics.vbus_mv,
-                       metrics.i_rms_ma,
+                       metrics.i_rms_ma as u32,
                        metrics.power_mw,
                        metrics.mcu_temp_c,
-                       metrics.throttle_factor * 100.0);
+                       (metrics.throttle_factor * 100.0) as u32);
         }
     }
 }

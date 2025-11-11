@@ -82,6 +82,7 @@ pub enum FirmwareError {
 
 /// Error severity levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ErrorSeverity {
     /// Informational only - no action required.
     Info,

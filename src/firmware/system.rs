@@ -274,10 +274,9 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     {
         defmt::info!("[INIT] Initializing power monitoring system...");
 
-        // Initialize Sensors (ADC + DMA)
+        // Initialize Sensors (ADC with blocking reads)
         let sensors = Sensors::new(
             p.ADC1,
-            p.DMA1_CH3,  // Using CH3 to avoid conflict with UART (CH1/CH2)
             p.PA3,       // Phase A current
             p.PB0,       // Phase B current
             p.PA2,       // Vbus voltage

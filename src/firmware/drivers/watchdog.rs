@@ -8,6 +8,8 @@
 /// feed the watchdog regularly or the MCU will reset.
 
 use embassy_stm32::wdg::IndependentWatchdog;
+use embassy_stm32::peripherals::IWDG;
+use embassy_stm32::Peri;
 
 /// Watchdog configuration.
 #[derive(Clone, Copy)]
@@ -55,10 +57,12 @@ impl Watchdog {
     /// Must be fed regularly or MCU will reset.
     ///
     /// # Arguments
-    /// * `iwdg` - IWDG peripheral singleton
+    /// * `iwdg` - IWDG peripheral
     /// * `config` - Watchdog configuration
-    pub fn new(iwdg: embassy_stm32::peripherals::IWDG, config: WatchdogConfig) -> Self {
-        let iwdg = IndependentWatchdog::new(iwdg.into(), config.timeout_ms);
+    pub fn new(iwdg: Peri<'static, IWDG>, config: WatchdogConfig) -> Self {
+        let timeout_us = config.timeout_ms * 1000; // Convert ms to us for Embassy API
+        let mut iwdg = IndependentWatchdog::new(iwdg, timeout_us);
+        iwdg.unleash(); // Start the watchdog
 
         defmt::info!("Watchdog initialized: {}ms timeout", config.timeout_ms);
         defmt::warn!("Watchdog active - must feed every {}ms", config.timeout_ms / 2);

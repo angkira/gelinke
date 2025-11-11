@@ -1,5 +1,7 @@
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::peripherals::ADC1;
+use embassy_stm32::Peri;
+use libm::{powf, sqrtf};
 
 /// ADC configuration for current sensing and voltage monitoring.
 pub const ADC_SAMPLE_TIME: SampleTime = SampleTime::CYCLES12_5;
@@ -36,104 +38,72 @@ pub const TEMP_SHUTDOWN_C: f32 = 85.0;         // Emergency shutdown
 /// - PB0 (ADC1_IN15): DRV8844 BISEN (Phase B current)
 /// - PA2 (ADC1_IN3): Vbus voltage divider
 /// - DMA1_CH3: ADC1 DMA transfers (via DMAMUX)
-pub struct Sensors {
-    adc: Adc<'static, ADC1>,
-    dma: embassy_stm32::Peri<'static, embassy_stm32::peripherals::DMA1_CH3>,
+pub struct Sensors<'d> {
+    adc: Adc<'d, ADC1>,
     current_a: embassy_stm32::adc::AnyAdcChannel<ADC1>,
     current_b: embassy_stm32::adc::AnyAdcChannel<ADC1>,
     vbus: embassy_stm32::adc::AnyAdcChannel<ADC1>,
-    buffer: [u16; 3],
 }
 
-impl Sensors {
+impl<'d> Sensors<'d> {
     /// Create a new sensor instance.
     ///
     /// # Arguments
     /// * `adc1` - ADC1 peripheral
-    /// * `dma1_ch3` - DMA1 Channel 3 for ADC transfers (via DMAMUX)
     /// * `pa3` - PA3 pin for Phase A current sensing (ADC1_IN4)
     /// * `pb0` - PB0 pin for Phase B current sensing (ADC1_IN15)
     /// * `pa2` - PA2 pin for Vbus voltage monitoring (ADC1_IN3)
     pub fn new(
-        adc1: embassy_stm32::peripherals::ADC1,
-        dma1_ch3: embassy_stm32::peripherals::DMA1_CH3,
-        pa3: embassy_stm32::peripherals::PA3,
-        pb0: embassy_stm32::peripherals::PB0,
-        pa2: embassy_stm32::peripherals::PA2,
+        adc1: Peri<'d, ADC1>,
+        pa3: impl AdcChannel<ADC1> + 'd,
+        pb0: impl AdcChannel<ADC1> + 'd,
+        pa2: impl AdcChannel<ADC1> + 'd,
     ) -> Self {
-        let adc = Adc::new(adc1);
+        let mut adc = Adc::new(adc1);
 
         // Current sensing from DRV8844
-        let current_a = pa3.degrade_adc();  // ADC1_IN4
-        let current_b = pb0.degrade_adc();  // ADC1_IN15
+        // Embassy 0.4.0: Call degrade_adc() to type-erase channels
+        let mut current_a = pa3.degrade_adc();  // ADC1_IN4
+        let mut current_b = pb0.degrade_adc();  // ADC1_IN15
 
         // Supply voltage monitoring
-        let vbus = pa2.degrade_adc();  // ADC1_IN3
-
-        let dma = dma1_ch3;
+        let mut vbus = pa2.degrade_adc();  // ADC1_IN3
 
         Self {
             adc,
-            dma,
             current_a,
             current_b,
             vbus,
-            buffer: [0; 3],
         }
     }
 
     /// Read raw ADC values from all sensors.
     ///
     /// Returns [current_a_raw, current_b_raw, vbus_raw]
+    /// Embassy 0.4.0: Using blocking_read instead of async DMA
     pub async fn read_all_raw(&mut self) -> [u16; 3] {
-        self.adc
-            .read(
-                self.dma.reborrow(),
-                [
-                    (&mut self.current_a, ADC_SAMPLE_TIME),
-                    (&mut self.current_b, ADC_SAMPLE_TIME),
-                    (&mut self.vbus, ADC_SAMPLE_TIME),
-                ]
-                .into_iter(),
-                &mut self.buffer,
-            )
-            .await;
+        let current_a = self.adc.blocking_read(&mut self.current_a);
+        let current_b = self.adc.blocking_read(&mut self.current_b);
+        let vbus = self.adc.blocking_read(&mut self.vbus);
 
-        self.buffer
+        [current_a, current_b, vbus]
     }
 
     /// Read raw ADC values from current sensors only.
     ///
     /// Returns [phase_a_raw, phase_b_raw]
+    /// Embassy 0.4.0: Using blocking_read instead of async DMA
     pub async fn read_currents_raw(&mut self) -> [u16; 2] {
-        let mut buffer = [0u16; 2];
-        self.adc
-            .read(
-                self.dma.reborrow(),
-                [
-                    (&mut self.current_a, ADC_SAMPLE_TIME),
-                    (&mut self.current_b, ADC_SAMPLE_TIME),
-                ]
-                .into_iter(),
-                &mut buffer,
-            )
-            .await;
+        let current_a = self.adc.blocking_read(&mut self.current_a);
+        let current_b = self.adc.blocking_read(&mut self.current_b);
 
-        buffer
+        [current_a, current_b]
     }
 
     /// Read raw Vbus ADC value.
+    /// Embassy 0.4.0: Using blocking_read instead of async DMA
     pub async fn read_vbus_raw(&mut self) -> u16 {
-        let mut buffer = [0u16; 1];
-        self.adc
-            .read(
-                self.dma.reborrow(),
-                [(&mut self.vbus, ADC_SAMPLE_TIME)].into_iter(),
-                &mut buffer,
-            )
-            .await;
-
-        buffer[0]
+        self.adc.blocking_read(&mut self.vbus)
     }
 
     /// Convert raw ADC value to current in milliamps (DRV8844 current sense).
@@ -219,7 +189,8 @@ impl Sensors {
         // Read internal temperature sensor
         // Note: Embassy may need specific API for internal channels
         // This is a simplified version - actual implementation may vary
-        let temp_raw = self.adc.read_internal(&mut embassy_stm32::adc::Temperature).await;
+        // Embassy 0.4.0: read_internal is now blocking_read (synchronous, no await)
+        let temp_raw = self.adc.blocking_read(&mut embassy_stm32::adc::Temperature);
 
         // Convert to millivolts
         let temp_mv = (temp_raw as u32 * VREF_MV) / 4096;
@@ -265,7 +236,7 @@ impl Sensors {
 }
 
 // Legacy compatibility aliases
-pub type CurrentSensors = Sensors;
+pub type CurrentSensors<'d> = Sensors<'d>;
 
 /// RMS current calculator for motor protection.
 ///
@@ -307,8 +278,9 @@ impl RmsCalculator {
     /// RMS current in milliamps
     pub fn update(&mut self, ia_ma: i32, ib_ma: i32) -> f32 {
         // Calculate I² for both phases
-        let i_sq_a = (ia_ma as f32).powi(2);
-        let i_sq_b = (ib_ma as f32).powi(2);
+        // no_std: Use libm powf and sqrtf instead of powi/sqrt methods
+        let i_sq_a = powf(ia_ma as f32, 2.0);
+        let i_sq_b = powf(ib_ma as f32, 2.0);
 
         // Combined I² (average of both phases)
         let i_sq_combined = (i_sq_a + i_sq_b) / 2.0;
@@ -327,7 +299,7 @@ impl RmsCalculator {
         let mean_i_sq = sum / (self.count as f32);
 
         // Return RMS: sqrt(mean(I²))
-        mean_i_sq.sqrt()
+        sqrtf(mean_i_sq)
     }
 
     /// Get current RMS value without updating.
@@ -338,7 +310,8 @@ impl RmsCalculator {
 
         let sum: f32 = self.i_sq_buffer.iter().take(self.count).sum();
         let mean_i_sq = sum / (self.count as f32);
-        mean_i_sq.sqrt()
+        // no_std: Use libm sqrtf
+        sqrtf(mean_i_sq)
     }
 
     /// Reset the calculator.
