@@ -34,9 +34,9 @@ impl MotorDriver {
     /// - Motor driver disabled (nSLEEP = LOW)
     /// - Reset released (nRESET = HIGH)
     pub fn new(
-        pa4: embassy_stm32::peripherals::PA4,
-        pb1: embassy_stm32::peripherals::PB1,
-        pb2: embassy_stm32::peripherals::PB2,
+        pa4: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
+        pb1: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
+        pb2: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
     ) -> Self {
         // nSLEEP: Start disabled (LOW)
         let enable = Output::new(pa4, Level::Low, Speed::Medium);

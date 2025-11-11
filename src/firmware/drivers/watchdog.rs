@@ -46,7 +46,7 @@ impl Default for WatchdogConfig {
 /// }
 /// ```
 pub struct Watchdog {
-    iwdg: IndependentWatchdog<'static>,
+    iwdg: IndependentWatchdog<'static, IWDG>,
     timeout_ms: u32,
 }
 

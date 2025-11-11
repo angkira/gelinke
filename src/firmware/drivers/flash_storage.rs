@@ -123,7 +123,7 @@ impl FlashStorage {
     const VERSION: u32 = 1;
 
     /// Create a new flash storage instance.
-    pub fn new(flash_peripheral: embassy_stm32::peripherals::FLASH) -> Self {
+    pub fn new(flash_peripheral: embassy_stm32::Peri<'static, embassy_stm32::peripherals::FLASH>) -> Self {
         let flash = Flash::new_blocking(flash_peripheral);
 
         defmt::info!("Flash storage initialized");

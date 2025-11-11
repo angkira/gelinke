@@ -40,9 +40,9 @@ impl FocController {
     }
 
     /// Calibrate ADC offsets at zero current.
-    pub async fn calibrate(&mut self, adc: &mut CurrentSensors) {
+    pub async fn calibrate(&mut self, adc: &mut CurrentSensors<'_>) {
         self.state = FocState::Calibrating;
-        self.adc_offsets = adc.calibrate_offsets(100).await;
+        self.adc_offsets = adc.calibrate_current_offsets(100).await;
         defmt::info!("ADC calibration complete: offsets={:?}", self.adc_offsets);
     }
 
@@ -54,7 +54,7 @@ impl FocController {
     /// Run one FOC control iteration.
     pub fn update(
         &mut self,
-        _adc: &mut CurrentSensors,
+        _adc: &mut CurrentSensors<'_>,
         encoder: &mut AngleSensor,
         pwm: &mut PhasePwm,
         cordic: &mut CordicEngine,

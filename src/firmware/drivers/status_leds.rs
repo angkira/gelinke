@@ -38,9 +38,9 @@ impl StatusLeds {
     /// # Initial State
     /// All LEDs off (pins high, active low)
     pub fn new(
-        pb13: embassy_stm32::peripherals::PB13,
-        pb14: embassy_stm32::peripherals::PB14,
-        pb15: embassy_stm32::peripherals::PB15,
+        pb13: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
+        pb14: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
+        pb15: embassy_stm32::Peri<'static, impl embassy_stm32::gpio::Pin>,
     ) -> Self {
         // Active low: HIGH = off, LOW = on
         let red = Output::new(pb13, Level::High, Speed::Low);

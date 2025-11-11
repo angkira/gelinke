@@ -120,7 +120,7 @@ static CURRENT_OFFSETS: Mutex<CriticalSectionRawMutex, [u16; 2]> =
 /// - Voltage sag detection (brownout prediction)
 #[embassy_executor::task]
 pub async fn power_monitor(
-    mut sensors: Sensors,
+    mut sensors: Sensors<'static>,
     mut motor_driver: MotorDriver,
     mut status_leds: StatusLeds,
 ) {
