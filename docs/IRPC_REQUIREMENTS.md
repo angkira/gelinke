@@ -256,24 +256,38 @@ The iRPC `joint_api` feature needs to be extended with power monitoring messages
 
 ---
 
+## Architecture Note
+
+**IMPORTANT:** This firmware uses iRPC as the communication abstraction layer. We do NOT communicate with CAN directly. All telemetry and command messages MUST go through the iRPC API.
+
+**Current Stack:**
+```
+Firmware Tasks → iRPC API → CAN Transport Layer → Physical CAN Bus
+```
+
+**Benefits of iRPC Abstraction:**
+- Type-safe message definitions
+- Automatic serialization/deserialization
+- Transport independence (CAN, USB, UART, Ethernet)
+- Code generation for host and device
+- Version compatibility checking
+- Message routing and filtering
+
 ## Alternative Solutions
 
 If iRPC extension is not immediately available:
 
-### Option A: Generic Binary Telemetry
-- Use existing iRPC generic data message
+### Option A: Generic Binary Telemetry via iRPC
+- Use existing iRPC generic data message types
 - Serialize PowerMetrics to byte array
+- Send through iRPC (maintains abstraction)
 - Less type-safe, requires manual deserialization on host
 
-### Option B: Custom CAN Messages
-- Bypass iRPC for power monitoring
-- Direct CAN transmission using embassy_stm32::can
-- Lose iRPC benefits (type safety, code generation, etc.)
-
-### Option C: USB/UART Fallback
-- Stream power metrics over USB or UART instead of CAN
+### Option B: USB/UART Telemetry via iRPC
+- Configure iRPC to use USB or UART transport
+- Same message types, different physical layer
 - Higher bandwidth, lower latency
-- Requires additional host software
+- Still uses iRPC abstraction (preferred approach)
 
 ---
 
