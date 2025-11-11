@@ -9,7 +9,6 @@
 /// - PB2 (GPIO Output): nRESET - Driver reset (active low)
 
 use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed};
-use embassy_stm32::Peripherals;
 
 /// DRV8844 motor driver control interface.
 ///
@@ -27,20 +26,26 @@ impl MotorDriver {
     /// Create a new motor driver control instance.
     ///
     /// # Arguments
-    /// * `p` - Peripherals struct
+    /// * `pa4` - PA4 pin for nSLEEP (enable/disable)
+    /// * `pb1` - PB1 pin for nFAULT (fault detection)
+    /// * `pb2` - PB2 pin for nRESET (driver reset)
     ///
     /// # Initial State
     /// - Motor driver disabled (nSLEEP = LOW)
     /// - Reset released (nRESET = HIGH)
-    pub fn new(p: Peripherals) -> Self {
+    pub fn new(
+        pa4: embassy_stm32::peripherals::PA4,
+        pb1: embassy_stm32::peripherals::PB1,
+        pb2: embassy_stm32::peripherals::PB2,
+    ) -> Self {
         // nSLEEP: Start disabled (LOW)
-        let enable = Output::new(p.PA4, Level::Low, Speed::Medium);
+        let enable = Output::new(pa4, Level::Low, Speed::Medium);
 
         // nFAULT: Input with pull-up (fault is active low)
-        let fault = Input::new(p.PB1, Pull::Up);
+        let fault = Input::new(pb1, Pull::Up);
 
         // nRESET: Start with reset released (HIGH)
-        let reset = Output::new(p.PB2, Level::High, Speed::Medium);
+        let reset = Output::new(pb2, Level::High, Speed::Medium);
 
         Self {
             enable,

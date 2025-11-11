@@ -6,7 +6,6 @@
 /// - PB15: Blue LED (active low)
 
 use embassy_stm32::gpio::{Level, Output, Speed};
-use embassy_stm32::Peripherals;
 
 /// RGB status LED controller.
 pub struct StatusLeds {
@@ -32,15 +31,21 @@ impl StatusLeds {
     /// Create a new status LED controller.
     ///
     /// # Arguments
-    /// * `p` - Peripherals struct
+    /// * `pb13` - PB13 pin for Red LED
+    /// * `pb14` - PB14 pin for Green LED
+    /// * `pb15` - PB15 pin for Blue LED
     ///
     /// # Initial State
     /// All LEDs off (pins high, active low)
-    pub fn new(p: Peripherals) -> Self {
+    pub fn new(
+        pb13: embassy_stm32::peripherals::PB13,
+        pb14: embassy_stm32::peripherals::PB14,
+        pb15: embassy_stm32::peripherals::PB15,
+    ) -> Self {
         // Active low: HIGH = off, LOW = on
-        let red = Output::new(p.PB13, Level::High, Speed::Low);
-        let green = Output::new(p.PB14, Level::High, Speed::Low);
-        let blue = Output::new(p.PB15, Level::High, Speed::Low);
+        let red = Output::new(pb13, Level::High, Speed::Low);
+        let green = Output::new(pb14, Level::High, Speed::Low);
+        let blue = Output::new(pb15, Level::High, Speed::Low);
 
         Self { red, green, blue }
     }

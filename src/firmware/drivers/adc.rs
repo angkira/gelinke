@@ -1,6 +1,5 @@
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
-use embassy_stm32::peripherals::{ADC1, DMA1_CH1};
-use embassy_stm32::Peripherals;
+use embassy_stm32::peripherals::ADC1;
 
 /// ADC configuration for current sensing and voltage monitoring.
 pub const ADC_SAMPLE_TIME: SampleTime = SampleTime::CYCLES12_5;
@@ -36,9 +35,10 @@ pub const TEMP_SHUTDOWN_C: f32 = 85.0;         // Emergency shutdown
 /// - PA3 (ADC1_IN4): DRV8844 AISEN (Phase A current)
 /// - PB0 (ADC1_IN15): DRV8844 BISEN (Phase B current)
 /// - PA2 (ADC1_IN3): Vbus voltage divider
+/// - DMA1_CH3: ADC1 DMA transfers (via DMAMUX)
 pub struct Sensors {
     adc: Adc<'static, ADC1>,
-    dma: embassy_stm32::Peri<'static, DMA1_CH1>,
+    dma: embassy_stm32::Peri<'static, embassy_stm32::peripherals::DMA1_CH3>,
     current_a: embassy_stm32::adc::AnyAdcChannel<ADC1>,
     current_b: embassy_stm32::adc::AnyAdcChannel<ADC1>,
     vbus: embassy_stm32::adc::AnyAdcChannel<ADC1>,
@@ -49,18 +49,28 @@ impl Sensors {
     /// Create a new sensor instance.
     ///
     /// # Arguments
-    /// * `p` - Peripherals struct
-    pub fn new(p: Peripherals) -> Self {
-        let adc = Adc::new(p.ADC1);
+    /// * `adc1` - ADC1 peripheral
+    /// * `dma1_ch3` - DMA1 Channel 3 for ADC transfers (via DMAMUX)
+    /// * `pa3` - PA3 pin for Phase A current sensing (ADC1_IN4)
+    /// * `pb0` - PB0 pin for Phase B current sensing (ADC1_IN15)
+    /// * `pa2` - PA2 pin for Vbus voltage monitoring (ADC1_IN3)
+    pub fn new(
+        adc1: embassy_stm32::peripherals::ADC1,
+        dma1_ch3: embassy_stm32::peripherals::DMA1_CH3,
+        pa3: embassy_stm32::peripherals::PA3,
+        pb0: embassy_stm32::peripherals::PB0,
+        pa2: embassy_stm32::peripherals::PA2,
+    ) -> Self {
+        let adc = Adc::new(adc1);
 
         // Current sensing from DRV8844
-        let current_a = p.PA3.degrade_adc();  // ADC1_IN4
-        let current_b = p.PB0.degrade_adc();  // ADC1_IN15
+        let current_a = pa3.degrade_adc();  // ADC1_IN4
+        let current_b = pb0.degrade_adc();  // ADC1_IN15
 
         // Supply voltage monitoring
-        let vbus = p.PA2.degrade_adc();  // ADC1_IN3
+        let vbus = pa2.degrade_adc();  // ADC1_IN3
 
-        let dma = p.DMA1_CH1;
+        let dma = dma1_ch3;
 
         Self {
             adc,

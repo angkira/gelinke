@@ -16,6 +16,15 @@ use crate::firmware::drivers::watchdog::{Watchdog, WatchdogConfig};
 #[cfg(not(feature = "renode-mock"))]
 use crate::firmware::drivers::flash_storage::FlashStorage;
 
+#[cfg(not(feature = "renode-mock"))]
+use crate::firmware::drivers::adc::Sensors;
+
+#[cfg(not(feature = "renode-mock"))]
+use crate::firmware::drivers::motor_driver::MotorDriver;
+
+#[cfg(not(feature = "renode-mock"))]
+use crate::firmware::drivers::status_leds::StatusLeds;
+
 bind_interrupts!(struct UartIrqs {
     USART3 => embassy_stm32::usart::InterruptHandler<peripherals::USART3>;
 });
@@ -258,7 +267,57 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     }
 
     // ========================================================================
-    // STEP 7: Report Initialization Status
+    // STEP 7: Initialize and Spawn Power Monitor (non-critical)
+    // ========================================================================
+
+    #[cfg(not(feature = "renode-mock"))]
+    {
+        defmt::info!("[INIT] Initializing power monitoring system...");
+
+        // Initialize Sensors (ADC + DMA)
+        let sensors = Sensors::new(
+            p.ADC1,
+            p.DMA1_CH3,  // Using CH3 to avoid conflict with UART (CH1/CH2)
+            p.PA3,       // Phase A current
+            p.PB0,       // Phase B current
+            p.PA2,       // Vbus voltage
+        );
+        defmt::info!("[INIT] ✓ Sensors initialized (ADC1 + DMA1_CH3)");
+
+        // Initialize Motor Driver control
+        let motor_driver = MotorDriver::new(
+            p.PA4,  // nSLEEP
+            p.PB1,  // nFAULT
+            p.PB2,  // nRESET
+        );
+        defmt::info!("[INIT] ✓ Motor driver control initialized");
+
+        // Initialize Status LEDs
+        let status_leds = StatusLeds::new(
+            p.PB13,  // Red
+            p.PB14,  // Green
+            p.PB15,  // Blue
+        );
+        defmt::info!("[INIT] ✓ Status LEDs initialized");
+
+        // Spawn power monitor task
+        defmt::info!("[INIT] Spawning power monitor task (100 Hz)...");
+        if spawner.spawn(crate::firmware::tasks::power_monitor::power_monitor(
+            sensors,
+            motor_driver,
+            status_leds,
+        )).is_err() {
+            defmt::warn!("[INIT] ✗ Failed to spawn power monitor task");
+            init_errors.add(FirmwareError::AdcInitFailed);
+        } else {
+            defmt::info!("[INIT] ✓ Power monitor task spawned");
+            defmt::info!("[INIT]   → Monitoring: V, I, temp, faults @ 100 Hz");
+            defmt::info!("[INIT]   → Protection: OV, UV, OC, thermal");
+        }
+    }
+
+    // ========================================================================
+    // STEP 8: Report Initialization Status
     // ========================================================================
 
     if init_errors.is_empty() {
@@ -279,7 +338,7 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
     uart_log::log(LogMessage::Ready);
 
     // ========================================================================
-    // STEP 8: Main Heartbeat Loop
+    // STEP 9: Main Heartbeat Loop
     // ========================================================================
 
     let mut counter = 0u32;
