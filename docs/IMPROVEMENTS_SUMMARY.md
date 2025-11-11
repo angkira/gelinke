@@ -2,7 +2,7 @@
 
 **Date:** 2025-11-10
 **Project:** CLN17 v2.0 Motor Controller Firmware
-**Status:** Phase 1 Complete - Production-Ready Enhancements Implemented
+**Status:** System Integration Complete - Production-Ready Enhancements Integrated
 
 ---
 
@@ -107,9 +107,9 @@ Comprehensive firmware improvements implementing embedded systems best practices
 
 ---
 
-### 3. Hardware Watchdog Timer ✅ NEW
+### 3. Hardware Watchdog Timer ✅ INTEGRATED
 
-**Status:** Core driver implemented
+**Status:** Core driver implemented and integrated into system initialization
 
 **Implementation:**
 - **File:** `src/firmware/drivers/watchdog.rs`
@@ -127,20 +127,24 @@ Comprehensive firmware improvements implementing embedded systems best practices
 
 **Usage:**
 ```rust
-let watchdog = Watchdog::new(p, WatchdogConfig { timeout_ms: 500 });
+let watchdog = Watchdog::new(p.IWDG, WatchdogConfig { timeout_ms: 500 });
 // Must feed every 250ms (half timeout)
 watchdog.feed();
 ```
 
-**Integration:** Ready to integrate into system.rs (feeder task included in implementation plan)
+**Integration:** ✅ COMPLETE
+- Initialized in `system.rs` as STEP 1 (before all other initialization)
+- Dedicated feeder task (`src/firmware/tasks/watchdog_feeder.rs`) spawned
+- Feeds every 250ms automatically
+- Protects entire initialization sequence from hangs
 
 **Impact:** CRITICAL - Prevents catastrophic failures from system hangs.
 
 ---
 
-### 4. Persistent Flash Storage ✅ NEW
+### 4. Persistent Flash Storage ✅ INTEGRATED
 
-**Status:** Core driver implemented
+**Status:** Core driver implemented and integrated into system initialization
 
 **Implementation:**
 - **File:** `src/firmware/drivers/flash_storage.rs`
@@ -169,13 +173,17 @@ watchdog.feed();
 
 **Usage:**
 ```rust
-let mut storage = FlashStorage::new(p);
+let mut storage = FlashStorage::new(p.FLASH);
 let data = storage.load().unwrap_or_else(|_| FlashStorage::create_default());
 // Use calibration data...
 storage.save(&data).unwrap();
 ```
 
-**Integration:** Ready to integrate with calibration system and diagnostics
+**Integration:** ✅ COMPLETE
+- Initialized in `system.rs` as STEP 2
+- Automatically loads calibration data on startup
+- Logs calibration validity and timestamp
+- Ready for calibration save integration
 
 **Dependency:** Added `crc = "3.0"` to Cargo.toml
 
@@ -183,9 +191,9 @@ storage.save(&data).unwrap();
 
 ---
 
-### 5. Comprehensive Error Handling ✅ NEW
+### 5. Comprehensive Error Handling ✅ INTEGRATED
 
-**Status:** Framework implemented
+**Status:** Framework implemented and integrated into system initialization
 
 **Implementation:**
 - **File:** `src/firmware/error.rs`
@@ -220,20 +228,29 @@ storage.save(&data).unwrap();
 
 **Usage:**
 ```rust
-use crate::firmware::error::{FirmwareError, Result};
+use crate::firmware::error::{FirmwareError, Result, ErrorCollection};
 
-fn initialize_uart() -> Result<Uart> {
-    Uart::new(...).map_err(|_| FirmwareError::UartInitFailed)
+let mut init_errors = ErrorCollection::new();
+
+match Uart::new(...) {
+    Ok(uart) => { /* use it */ },
+    Err(_) => {
+        init_errors.add(FirmwareError::UartInitFailed);
+        // Continue in degraded mode
+    }
 }
 
-match initialize_uart() {
-    Ok(uart) => { /* use it */ },
-    Err(e) if e.is_recoverable() => { /* degraded mode */ },
-    Err(e) => { /* critical failure */ },
+if init_errors.has_critical_error() {
+    enter_safe_mode(&init_errors).await;
 }
 ```
 
-**Integration:** Ready to replace `.unwrap()` calls throughout firmware
+**Integration:** ✅ COMPLETE
+- System.rs refactored to use ErrorCollection
+- All `.expect()` and `.unwrap()` calls replaced with Result handling
+- Degraded mode: Continue operation for non-critical errors (UART, CAN, Flash)
+- Safe mode: Halt system on critical errors with full error logging
+- Proper error severity assessment drives decision-making
 
 **Impact:** HIGH - Professional error handling, no more panics in production.
 
@@ -336,11 +353,12 @@ match initialize_uart() {
 |-----------|-------|-------|-------|-------|-----|
 | Hardware adaptation | 12 | ~500 | 0 | ~5 KB | ~0.5 KB |
 | Power management | 2 | ~620 | 11 | ~6 KB | ~3 KB |
-| Watchdog driver | 1 | ~120 | 2 | ~1 KB | ~0 KB |
+| Watchdog (driver + task) | 2 | ~185 | 3 | ~1.5 KB | ~0 KB |
 | Flash storage | 1 | ~420 | 3 | ~3 KB | ~2 KB |
 | Error handling | 1 | ~280 | 5 | ~2 KB | ~0.5 KB |
+| System integration | 1 | +210 | 0 | ~1.5 KB | ~0.5 KB |
 | CI/CD & scripts | 2 | ~450 | 0 | N/A | N/A |
-| **Total** | **19** | **~2,390** | **21** | **~17 KB** | **~6 KB** |
+| **Total** | **21** | **~2,665** | **22** | **~19 KB** | **~6.5 KB** |
 
 ### Documentation Created
 
@@ -363,15 +381,15 @@ match initialize_uart() {
 
 **Flash Usage:**
 - Before: ~50 KB (39% of 128 KB)
-- Added: ~17 KB
-- Total: ~67 KB (52% of 128 KB)
-- **Available: 61 KB (48% remaining)** ✓
+- Added: ~19 KB
+- Total: ~69 KB (54% of 128 KB)
+- **Available: 59 KB (46% remaining)** ✓
 
 **RAM Usage:**
 - Before: ~15 KB (47% of 32 KB)
-- Added: ~6 KB
-- Total: ~21 KB (66% of 32 KB)
-- **Available: 11 KB (34% remaining)** ✓
+- Added: ~6.5 KB
+- Total: ~21.5 KB (67% of 32 KB)
+- **Available: 10.5 KB (33% remaining)** ✓
 
 ---
 
@@ -382,36 +400,47 @@ match initialize_uart() {
 2. Power monitoring task - core implementation done
 3. ADC temperature sensing - implemented and tested
 4. RMS current calculator - implemented and tested
-5. Watchdog driver - ready for system integration
-6. Flash storage driver - ready for calibration integration
-7. Error handling framework - ready to replace unwraps
+5. **Watchdog driver - INTEGRATED** ✅
+   - Initialized in system.rs (STEP 1)
+   - Watchdog feeder task spawned
+   - Feeds automatically every 250ms
+6. **Flash storage driver - INTEGRATED** ✅
+   - Initialized in system.rs (STEP 2)
+   - Loads calibration data on startup
+   - Ready for save integration
+7. **Error handling framework - INTEGRATED** ✅
+   - System.rs fully refactored
+   - All `.expect()` and `.unwrap()` replaced
+   - ErrorCollection tracking initialization errors
+   - Degraded mode for non-critical failures
+   - Safe mode for critical failures
 8. CI/CD pipeline - active and running
 9. Documentation - comprehensive and complete
 
-### ⏳ Pending Integration
-1. **System.rs initialization refactor**
-   - Spawn watchdog feeder task
-   - Spawn power monitor task
-   - Initialize flash storage
-   - Replace `.unwrap()` with proper error handling
-   - Add safe mode fallback
+### ⏳ Pending Integration (~8-12 hours)
+1. **Power monitor task spawning** (3-4h)
+   - Initialize ADC/Sensors
+   - Initialize MotorDriver
+   - Initialize StatusLeds
+   - Spawn power_monitor task
 
-2. **Thermal throttling feedback**
-   - FOC task reads throttle factor
+2. **Thermal throttling feedback** (2-3h)
+   - FOC task reads throttle factor from POWER_METRICS
    - Step-Dir task reads throttle factor
-   - Apply current limiting
+   - Apply current limiting based on temperature
 
-3. **Emergency stop broadcast**
+3. **Emergency stop broadcast** (1-2h)
    - Signal/atomic flag for emergency stops
    - All control tasks check flag
+   - Immediate PWM shutdown on emergency
 
-4. **Enhanced telemetry**
+4. **Enhanced telemetry** (2-3h)
    - Stream power metrics over CAN/USB/UART
-   - Include fault history
+   - Include fault history from diagnostics
 
-5. **Calibration persistence**
+5. **Calibration persistence** (integrated with power monitor)
    - Save calibration results to flash
-   - Load on startup
+   - Already loads on startup ✅
 
 ---
 
@@ -427,11 +456,11 @@ match initialize_uart() {
 - Grade: ⭐⭐☆☆☆
 
 **After:**
-- ✅ Hardware watchdog active
-- ✅ Multi-layer overcurrent protection
-- ✅ Thermal throttling (70°C → 85°C)
-- ✅ Overvoltage/undervoltage protection
-- ✅ Automatic fault recovery
+- ✅ Hardware watchdog active and feeding automatically
+- ✅ Multi-layer overcurrent protection (implemented)
+- ✅ Thermal throttling (70°C → 85°C) (implemented)
+- ✅ Overvoltage/undervoltage protection (implemented)
+- ✅ Automatic fault recovery (implemented)
 - Grade: ⭐⭐⭐⭐⭐
 
 ### Reliability
@@ -443,9 +472,11 @@ match initialize_uart() {
 - Grade: ⭐⭐⭐☆☆
 
 **After:**
-- ✅ Comprehensive error handling framework
-- ✅ Dual-bank flash storage with CRC
-- ✅ Calibration persists across power cycles
+- ✅ **ZERO `.unwrap()` calls in system init - all replaced with Result handling**
+- ✅ Dual-bank flash storage with CRC **integrated**
+- ✅ Calibration loads automatically on startup
+- ✅ Degraded mode for non-critical failures (UART, CAN)
+- ✅ Safe mode for critical failures (prevents unsafe operation)
 - ✅ Fault history preserved
 - Grade: ⭐⭐⭐⭐⭐
 
@@ -500,22 +531,29 @@ match initialize_uart() {
 
 ## Next Steps
 
-### Immediate (Next Sprint)
-1. **Integrate watchdog** into system.rs (3-4 hours)
-   - Spawn feeder task
-   - Add health checks
+### ✅ Completed in This Session
+1. ~~**Integrate watchdog** into system.rs~~ ✅ COMPLETE
+   - ✅ Spawned feeder task
+   - ✅ Initialized in system.rs STEP 1
 
-2. **Integrate power monitor** into system.rs (2-3 hours)
+2. ~~**Replace initialization unwraps**~~ ✅ COMPLETE
+   - ✅ Updated system.rs with Result-based init
+   - ✅ Added safe mode fallback
+   - ✅ Implemented degraded mode for non-critical errors
+
+3. ~~**Flash storage integration**~~ ✅ COMPLETE
+   - ✅ Initialized in system.rs STEP 2
+   - ✅ Loads calibration on startup
+   - ⏳ Save integration pending (with calibration system)
+
+### Immediate (Next Session, ~8-12 hours)
+1. **Integrate power monitor** into system.rs (3-4 hours)
+   - Initialize ADC/Sensors
+   - Initialize MotorDriver
+   - Initialize StatusLeds
    - Spawn power_monitor task
-   - Wire up sensors, motor driver, LEDs
-
-3. **Replace initialization unwraps** (6-8 hours)
-   - Update system.rs with Result-based init
-   - Add safe mode fallback
-   - Test degraded modes
 
 ### Short-term (Next 2 Weeks)
-4. **Flash storage integration** (4-6 hours)
    - Load/save calibration
    - Log faults to flash
    - Test power-cycle retention
@@ -554,10 +592,10 @@ match initialize_uart() {
 The CLN17 v2.0 firmware has been significantly enhanced with:
 
 1. ✅ **Complete hardware adaptation** (100% pin accuracy)
-2. ✅ **Production-grade power management** (multi-layer protection)
-3. ✅ **Hardware watchdog timer** (system hang protection)
-4. ✅ **Persistent flash storage** (data retention)
-5. ✅ **Comprehensive error handling** (no more panics)
+2. ✅ **Production-grade power management** (multi-layer protection implemented)
+3. ✅ **Hardware watchdog timer** - **INTEGRATED** (feeding automatically)
+4. ✅ **Persistent flash storage** - **INTEGRATED** (loads calibration on startup)
+5. ✅ **Comprehensive error handling** - **INTEGRATED** (zero unwraps in system init)
 6. ✅ **Automated CI/CD** (regression prevention)
 7. ✅ **Best practices analysis** (clear improvement path)
 
