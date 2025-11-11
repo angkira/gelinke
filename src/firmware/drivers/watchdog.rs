@@ -55,10 +55,10 @@ impl Watchdog {
     /// Must be fed regularly or MCU will reset.
     ///
     /// # Arguments
-    /// * `iwdg` - IWDG peripheral
+    /// * `iwdg` - IWDG peripheral singleton
     /// * `config` - Watchdog configuration
     pub fn new(iwdg: embassy_stm32::peripherals::IWDG, config: WatchdogConfig) -> Self {
-        let iwdg = IndependentWatchdog::new(iwdg, config.timeout_ms);
+        let iwdg = IndependentWatchdog::new(iwdg.into(), config.timeout_ms);
 
         defmt::info!("Watchdog initialized: {}ms timeout", config.timeout_ms);
         defmt::warn!("Watchdog active - must feed every {}ms", config.timeout_ms / 2);

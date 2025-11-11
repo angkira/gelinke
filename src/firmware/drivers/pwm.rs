@@ -112,6 +112,23 @@ impl<'d> MotorPwm<'d> {
         self.set_b2_duty(b2);
     }
 
+    /// Set phase duties from 3-phase FOC output.
+    ///
+    /// Maps 3-phase duties [A, B, C] to 2-phase H-bridge control.
+    /// This is a simplified mapping - proper 3→2 phase transformation
+    /// would require Clarke transform consideration.
+    ///
+    /// # Arguments
+    /// * `duties` - [phase_a_duty, phase_b_duty, phase_c_duty]
+    pub fn set_phase_duties(&mut self, duties: [u16; 3]) {
+        // Simplified mapping: Use A and B phases directly
+        // Phase A → H-bridge A (forward direction)
+        // Phase B → H-bridge B (forward direction)
+        self.set_phase_a_duties(duties[0], 0);
+        self.set_phase_b_duties(duties[1], 0);
+        // Note: Phase C is not used in 2-phase configuration
+    }
+
     /// Set all four H-bridge inputs at once.
     ///
     /// # Arguments
