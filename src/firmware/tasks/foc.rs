@@ -7,6 +7,7 @@ use crate::firmware::drivers::pwm::PhasePwm;
 use crate::firmware::drivers::sensors::AngleSensor;
 use crate::firmware::hardware::cordic::CordicEngine;
 use crate::firmware::hardware::fmac::DualPiController;
+use crate::firmware::tasks::thermal_throttle;
 
 /// FOC control loop frequency in Hz.
 pub const FOC_LOOP_FREQ_HZ: u32 = 10_000;
@@ -79,23 +80,36 @@ impl FocController {
         // 3. Park transform (αβ → dq)
         let (i_d, i_q) = cordic.park_transform(i_alpha, i_beta, angle_mdeg);
 
-        // 4. PI controllers for current
+        // 4. Apply thermal throttling to current targets
+        let throttle = thermal_throttle::get_throttle_factor();
         let (target_d, target_q) = self.target_current_dq;
-        let error_d = target_d - I16F16::from_num(i_d.to_num::<f32>());
-        let error_q = target_q - I16F16::from_num(i_q.to_num::<f32>());
-        
+        let target_d_throttled = target_d * I16F16::from_num(throttle);
+        let target_q_throttled = target_q * I16F16::from_num(throttle);
+
+        // Emergency shutdown check
+        if thermal_throttle::is_emergency_shutdown() {
+            defmt::warn!("FOC: Emergency thermal shutdown");
+            pwm.disable();
+            self.state = FocState::Fault;
+            return;
+        }
+
+        // 5. PI controllers for current
+        let error_d = target_d_throttled - I16F16::from_num(i_d.to_num::<f32>());
+        let error_q = target_q_throttled - I16F16::from_num(i_q.to_num::<f32>());
+
         let dt = 1.0 / FOC_LOOP_FREQ_HZ as f32;
         let (v_d, v_q) = pi_controller.update(error_d, error_q, dt);
 
-        // 5. Inverse Park transform (dq → αβ)
+        // 6. Inverse Park transform (dq → αβ)
         let v_d_norm = I1F15::from_num(v_d.to_num::<f32>().clamp(-1.0, 1.0));
         let v_q_norm = I1F15::from_num(v_q.to_num::<f32>().clamp(-1.0, 1.0));
         let (v_alpha, v_beta) = cordic.inverse_park_transform(v_d_norm, v_q_norm, angle_mdeg);
 
-        // 6. Space Vector PWM (αβ → PWM duties)
+        // 7. Space Vector PWM (αβ → PWM duties)
         let duties = self.svpwm(v_alpha, v_beta, pwm.max_duty());
 
-        // 7. Update PWM outputs
+        // 8. Update PWM outputs
         pwm.set_phase_duties(duties);
     }
 

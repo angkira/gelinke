@@ -18,6 +18,7 @@ use crate::firmware::drivers::adc::{
 };
 use crate::firmware::drivers::motor_driver::MotorDriver;
 use crate::firmware::drivers::status_leds::{StatusLeds, LedColor};
+use crate::firmware::tasks::thermal_throttle;
 
 /// Power metrics shared across tasks.
 #[derive(Clone, Copy)]
@@ -190,6 +191,9 @@ pub async fn power_monitor(
 
         // Calculate thermal throttle factor
         let throttle = Sensors::get_thermal_throttle(mcu_temp);
+
+        // Update lockless throttle state for FOC/Step-Dir tasks (10 kHz loops)
+        thermal_throttle::set_throttle_factor(throttle);
 
         // === CRITICAL PROTECTION CHECKS ===
 
