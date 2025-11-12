@@ -313,6 +313,16 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
             defmt::info!("[INIT]   → Monitoring: V, I, temp, faults @ 100 Hz");
             defmt::info!("[INIT]   → Protection: OV, UV, OC, thermal");
         }
+
+        // Spawn power telemetry task
+        defmt::info!("[INIT] Spawning power telemetry task (10 Hz)...");
+        if spawner.spawn(crate::firmware::tasks::power_telemetry::power_telemetry(10)).is_err() {
+            defmt::warn!("[INIT] ✗ Failed to spawn power telemetry task");
+        } else {
+            defmt::info!("[INIT] ✓ Power telemetry task spawned");
+            defmt::info!("[INIT]   → Streaming: Power metrics @ 10 Hz");
+            defmt::info!("[INIT]   → Ready for iRPC PowerMetrics integration");
+        }
     }
 
     // ========================================================================

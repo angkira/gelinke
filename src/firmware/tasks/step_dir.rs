@@ -9,6 +9,7 @@ use fixed::types::I16F16;
 
 use crate::firmware::config::MotorConfig;
 use crate::firmware::drivers::pwm::PhasePwm;
+use crate::firmware::tasks::thermal_throttle;
 
 /// Step-Dir control loop frequency in Hz.
 /// We run at a lower frequency than FOC since we don't need closed-loop control.
@@ -137,7 +138,21 @@ impl StepDirController {
             return;
         }
 
+        // Apply thermal throttling to phase currents
+        let throttle = thermal_throttle::get_throttle_factor();
+
+        // Emergency shutdown check
+        if thermal_throttle::is_emergency_shutdown() {
+            defmt::warn!("Step-Dir: Emergency thermal shutdown");
+            pwm.disable();
+            return;
+        }
+
         let (phase_a, phase_b) = self.table.get_phases(self.current_microstep);
+
+        // Apply throttle factor to reduce current proportionally
+        let phase_a_throttled = phase_a * throttle;
+        let phase_b_throttled = phase_b * throttle;
 
         let max_duty = pwm.max_duty();
 
@@ -146,22 +161,22 @@ impl StepDirController {
         // - Positive phase: AIN1=PWM, AIN2=0 (forward current)
         // - Negative phase: AIN1=0, AIN2=PWM (reverse current)
 
-        // Phase A H-bridge control
-        let (a1_duty, a2_duty) = if phase_a >= 0.0 {
+        // Phase A H-bridge control (with thermal throttling)
+        let (a1_duty, a2_duty) = if phase_a_throttled >= 0.0 {
             // Forward: AIN1=duty, AIN2=0
-            ((phase_a * max_duty as f32) as u16, 0)
+            ((phase_a_throttled * max_duty as f32) as u16, 0)
         } else {
             // Reverse: AIN1=0, AIN2=duty
-            (0, ((-phase_a) * max_duty as f32) as u16)
+            (0, ((-phase_a_throttled) * max_duty as f32) as u16)
         };
 
-        // Phase B H-bridge control
-        let (b1_duty, b2_duty) = if phase_b >= 0.0 {
+        // Phase B H-bridge control (with thermal throttling)
+        let (b1_duty, b2_duty) = if phase_b_throttled >= 0.0 {
             // Forward: BIN1=duty, BIN2=0
-            ((phase_b * max_duty as f32) as u16, 0)
+            ((phase_b_throttled * max_duty as f32) as u16, 0)
         } else {
             // Reverse: BIN1=0, BIN2=duty
-            (0, ((-phase_b) * max_duty as f32) as u16)
+            (0, ((-phase_b_throttled) * max_duty as f32) as u16)
         };
 
         // Set all 4 H-bridge inputs: [AIN1, AIN2, BIN1, BIN2]
