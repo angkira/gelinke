@@ -203,8 +203,8 @@ pub async fn initialize(spawner: Spawner, p: Peripherals) -> ! {
         if spawner.spawn(crate::firmware::tasks::can_comm::can_communication(
             DEFAULT_NODE_ID,
             p.FDCAN1,  // FDCAN peripheral
-            p.PB9,     // TX pin (CLN17 V2.0: PB9)
-            p.PB8,     // RX pin (CLN17 V2.0: PB8)
+            p.PB9,     // FDCAN1_TX (CLN17 V2.0: PB9)
+            p.PB8,     // FDCAN1_RX (CLN17 V2.0: PB8)
         )).is_err() {
             defmt::warn!("[INIT] ✗ Failed to spawn CAN task - will operate in degraded mode");
             init_errors.add(FirmwareError::CanInitFailed);
