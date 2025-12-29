@@ -36,7 +36,7 @@ impl AngleSensor {
             spi_config,
         );
 
-        let cs = Output::new(p.PA4, embassy_stm32::gpio::Level::High, embassy_stm32::gpio::Speed::VeryHigh);
+        let cs = Output::new(p.PC4, embassy_stm32::gpio::Level::High, embassy_stm32::gpio::Speed::VeryHigh);
 
         Self { spi, cs }
     }

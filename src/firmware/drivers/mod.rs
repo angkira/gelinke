@@ -1,7 +1,13 @@
 pub mod adc;
 pub mod can;
+pub mod can_transceiver;
 pub mod dma;
+pub mod flash_storage;
+pub mod motor_driver;
 pub mod pwm;
 pub mod sensors;
 pub mod spi;
+pub mod status_leds;
+pub mod step_dir_interface;
 pub mod usb;
+pub mod watchdog;
